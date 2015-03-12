@@ -122,6 +122,13 @@ def diff_(S, p):
     return S.difference(set(p))
 
 @primitive
+def unionP_(a, b):
+    return set([a, b])
+
+def unionS_(S, p):
+    return S.union(set(p))
+
+@primitive
 def range_set_(x, y, bound=Infinity):
     if y < x or y-x > bound or isnan(x) or isnan(y) or isinf(x) or isinf(y):
         return set()

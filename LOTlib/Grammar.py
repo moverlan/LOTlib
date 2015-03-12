@@ -92,11 +92,46 @@ class Grammar:
         """ 
         return not any([self.is_nonterminal(a) for a in None2Empty(r.to)])  
 
+    def get_gp(self, lhs, rule_index, log=False):
+        r = self.rules[lhs][rule_index]
+        probsum = sum([rule.p for rule in self.rules[lhs]])
+        if log:
+            return math.log(r.p / probsum)
+        else:
+            return r.p / probsum
     # --------------------------------------------------------------------------------------------------------
     # Generation
     # --------------------------------------------------------------------------------------------------------
+    def sample_rule(self, lhs):
+        return weighted_sample(self.rules[lhs], probs=lambda x: x.p, return_probability=True, log=False)
 
-    def generate(self, x=None):
+    def make_pick_rule_fn(self):
+        sofar = [self.start]
+        def pick_rule(self, lhs):
+            print sofar
+            for i, rule in enumerate(self.rules[lhs]):
+                print '[' + str(i+1) + '] ' + str(rule)
+
+            selection = int(raw_input())-1
+
+            r = self.rules[lhs][selection]
+            gp = self.get_gp(lhs, selection, log=True)
+
+            at = sofar.index(lhs) 
+            if r.to is not None: 
+                for node in reversed(r.to):
+                    sofar.insert(at+1, node)
+                if r.name is not '':
+                    sofar.insert(at+1, r.name)
+            else:
+                sofar.insert(at+1, r.name)
+            sofar.pop(at)
+
+            return (r, gp)
+        return pick_rule
+
+
+    def generate(self, x=None, rule_sampler=sample_rule):
         """Generate from the PCFG -- default is to start from x - either a nonterminal or a FunctionNode
 
         Arguments:
@@ -115,11 +150,11 @@ class Grammar:
         if isinstance(x,list):            
             # If we get a list, just map along it to generate.
             # We don't count lists as depth--only FunctionNodes.
-            return map(lambda xi: self.generate(x=xi), x)
+            return map(lambda xi: self.generate(x=xi, rule_sampler=rule_sampler), x)
         elif self.is_nonterminal(x):
 
             # sample a grammar rule
-            r, gp = weighted_sample(self.rules[x], probs=lambda x: x.p, return_probability=True, log=False)
+            r, gp = rule_sampler(self, x)
 
             # Make a stub for this functionNode 
             fn = r.make_FunctionNodeStub(self, gp, None) 
@@ -131,7 +166,7 @@ class Grammar:
                 if fn.args is not None:
                     # and generate below *in* this context (e.g. with the new rules added)
                     try:
-                        fn.args = self.generate(fn.args)
+                        fn.args = self.generate(fn.args, rule_sampler=rule_sampler)
                     except RuntimeError as e:
                         print "*** Runtime error in %s" % fn
                         raise e
