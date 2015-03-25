@@ -16,6 +16,9 @@ def lp_sample_equal_to(n, x, resampleProbability=lambdaOne):
     Z = n.sample_node_normalizer(resampleProbability=resampleProbability)
     return log(sum([resampleProbability(t) if (t==x) else 0.0 for t in n])) - log(Z)
 
+def instantiate_dict(): # because we can't pickle a lambda
+    return defaultdict(list)
+
 class InverseInlineProposal(LOTProposal):
     """
         Inverse inlinling proposals.
@@ -39,7 +42,7 @@ class InverseInlineProposal(LOTProposal):
         #   - they are applys
         #   - type P goes to it
         #   - their lambda goes to type T
-        self.abstractable_rules = defaultdict(lambda: defaultdict(list)) # Hash each nonterminal/parent nonterminal to (a,l) where a and l are the apply and lambda rules you need
+        self.abstractable_rules = defaultdict(instantiate_dict) # Hash each nonterminal/parent nonterminal to (a,l) where a and l are the apply and lambda rules you need
         for rule in self.grammar:
             if rule.name == 'apply_':
                 for l in filter( lambda r: isinstance(r, BVAddGrammarRule) and (r.nt == rule.to[0]) and (r.bv_args is None) and (r.bv_type==rule.to[1]), self.grammar): # For each lambda whose "below" is the right type. bv_args are not implemented yet
