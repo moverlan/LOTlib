@@ -310,3 +310,12 @@ class Grammar:
         openset.remove(x)
         return current_d[x]
 
+    def find(self, returntype, name, to):
+        """
+        returns the rule that matches the given returntype, name, and to
+        where to is a list of strings
+        """
+        for rule in self.rules[returntype]:
+            if rule.name == name and rule.to == to:
+                return rule
+        return None

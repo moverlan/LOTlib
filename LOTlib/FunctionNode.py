@@ -309,7 +309,16 @@ class FunctionNode(object):
         assert self.rule is not None
         for t in self.iterate_subnodes(grammar, self, do_bv=True):
             Z = log(sum([x.p for x in grammar.rules[t.returntype]]))
+            t.rule.p = grammar.find(t.returntype, t.rule.name, t.rule.to).p
             t.generation_probability = log(t.rule.p) - Z
+            #print t.returntype
+            #print t.rule
+            #print t.rule.__dict__ 
+            #print grammar.rules[t.returntype]
+            #print [x.p for x in grammar.rules[t.returntype]]
+            #print sum([x.p for x in grammar.rules[t.returntype]])
+            #print Z
+            #print t.generation_probability
 
     def compute_generation_probability(self, grammar):
         """
