@@ -194,7 +194,8 @@ class LOTHypothesis(FunctionHypothesis):
         --> `Z` & `generation_prob` are inspired by FunctionNode.recompute_generation_probabilities
 
         """
-        Z = {nt: log(sum([r.p for r in self.grammar.rules[nt]])) for nt in self.grammar.nonterminals()}
+        Z = {nt: log(max(1.0, sum([r.p for r in self.grammar.rules[nt]]))) for nt in self.grammar.nonterminals()}
+        #print 'Z', Z
 
         def generation_prob(rule):
             return log(rule.p) - Z[rule.nt]
@@ -202,7 +203,7 @@ class LOTHypothesis(FunctionHypothesis):
         grammar_vector = np.empty(len(self.rules))
         grammar_vector.fill(-np.inf)
         for r in self.rules:
-            grammar_vector[self.rule_idxs[r]] = generation_prob(r)
+            grammar_vector[self.rule_idxs[str(r)]] = generation_prob(r)
 
         self.grammar_vector = grammar_vector
         # self.grammar_vector = [generation_prob(r) for r in self.rules]
@@ -226,7 +227,7 @@ class LOTHypothesis(FunctionHypothesis):
 
         """
         self.rules = [r for sublist in self.grammar.rules.values() for r in sublist]
-        self.rule_idxs = {r: i for i, r in enumerate(self.rules)}
+        self.rule_idxs = {str(r): i for i, r in enumerate(self.rules)}
         self.rules_vector = np.zeros(len(self.rules))
 
         # Use vector to collect the counts for each GrammarRule used to generate the FunctionNode
@@ -234,10 +235,17 @@ class LOTHypothesis(FunctionHypothesis):
         grammar_rules = [fn.rule for fn in self.value.subnodes()[1:]]
         for rule in grammar_rules:
             try:
-                rule_idx = self.rule_idxs[rule]
+                rule_idx = self.rule_idxs[str(rule)]
                 self.rules_vector[rule_idx] += 1
             except Exception:
                 if isinstance(rule, BVUseGrammarRule):
                     pass
                 else:
-                    print Exception
+                    for x in self.rule_idxs.keys():
+                        print type(x)
+                        print x
+                        if x == rule:
+                            print "****"
+                    print type(rule)
+                    return
+                    #print Exception

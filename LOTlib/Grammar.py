@@ -42,6 +42,8 @@ class Grammar:
     def is_nonterminal(self, x):
         """A nonterminal is just something that is a key for self.rules"""
         # if x is a string  &&  if x is a key
+        #print 'is', x, 'in', self.rules.keys()
+        #print (x in self.rules)
         return isinstance(x, str) and (x in self.rules)
 
     def display_rules(self):
@@ -84,6 +86,7 @@ class Grammar:
             newrule = GrammarRule(nt,name,to, p=p)
 
         self.rules[nt].append(newrule)
+        #print 'self.rules.keys is now', self.rules.keys()
         return newrule
     
     def is_terminal_rule(self, r):
@@ -103,7 +106,12 @@ class Grammar:
     # Generation
     # --------------------------------------------------------------------------------------------------------
     def sample_rule(self, lhs):
-        return weighted_sample(self.rules[lhs], probs=lambda x: x.p, return_probability=True, log=False)
+        samp = weighted_sample(self.rules[lhs], probs=lambda x: x.p, return_probability=True, log=False)
+        if samp is None:
+            print 'weighted sample =', samp
+            print lhs
+            print self
+        return samp
 
     def make_pick_rule_fn(self):
         sofar = [self.start]
@@ -138,7 +146,7 @@ class Grammar:
             x (FunctionNode): What we start from -- can be None and then we use Grammar.start.
 
         """
-        # print "# Calling grammar.generate", d, type(x), x
+        #print "# Calling grammar.generate", type(x), x
 
         # Decide what to start from based on the default if start is not specified
         if x is None:
@@ -151,7 +159,10 @@ class Grammar:
             # If we get a list, just map along it to generate.
             # We don't count lists as depth--only FunctionNodes.
             return map(lambda xi: self.generate(x=xi, rule_sampler=rule_sampler), x)
+
         elif self.is_nonterminal(x):
+
+            #print x, 'is a non terminal'
 
             # sample a grammar rule
             r, gp = rule_sampler(self, x)
@@ -319,3 +330,13 @@ class Grammar:
             if rule.name == name and rule.to == to:
                 return rule
         return None
+
+    # generates all rules that match the given criteria
+    def rules_where(self, nt=None, name=None, to=None):
+        if nt in self.rules.keys(): # have to check first because self.rules is a default dict and if we look for something that's there it will then be there magically, thus breaking everything that relies on self.rules.keys() to get nonterminals, aka everything.
+            for r in self.rules[nt]:
+                if name is not None and not r.name == name:
+                    continue
+                if to is not None and not r.to == to:
+                    continue
+                yield r

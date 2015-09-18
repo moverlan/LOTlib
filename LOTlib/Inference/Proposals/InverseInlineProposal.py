@@ -11,7 +11,9 @@ def lp_sample_equal_to(n, x, resampleProbability=lambdaOne):
     """
         What is the log probability of sampling x or something equal to it from n? 
     """
-    assert x in n, str(x)+"\t\t"+str(n)
+    #assert x in n, str(x)+"\t\t"+str(n)
+    if not x in n:
+        return float('-inf')
     
     Z = n.sample_node_normalizer(resampleProbability=resampleProbability)
     return log(sum([resampleProbability(t) if (t==x) else 0.0 for t in n])) - log(Z)
@@ -38,17 +40,48 @@ class InverseInlineProposal(LOTProposal):
             # the asymmetry here is disturbing, but lambda is a keyword and apply is a function
 
 
-        # Insertable rules for type T and parent type P have the following properties:
-        #   - they are applys
-        #   - type P goes to it
-        #   - their lambda goes to type T
+        # Insertable rules for child type T and parent type P have the following properties:
+        #   1) its an apply with type T'
+        #   2) type P goes to T'
+        #   3) type P goes to T
+        #   4) its lambda goes to type T
         self.abstractable_rules = defaultdict(instantiate_dict) # Hash each nonterminal/parent nonterminal to (a,l) where a and l are the apply and lambda rules you need
-        for rule in self.grammar:
-            if rule.name == 'apply_':
-                for l in filter( lambda r: isinstance(r, BVAddGrammarRule) and (r.nt == rule.to[0]) and (r.bv_args is None) and (r.bv_type==rule.to[1]), self.grammar): # For each lambda whose "below" is the right type. bv_args are not implemented yet
-                    for parent_rule in self.grammar:
-                        if parent_rule.to and parent_rule.to[0] == rule.nt:
-                            self.abstractable_rules[l.to[0]][parent_rule.nt].append( (rule,l) )
+        
+        for parent_type in self.grammar.nonterminals():
+            child_types = set() # set of all types that rules of parent type can go to
+            for outer_rule in self.grammar.rules_where(nt=parent_type):
+                if len(outer_rule.to) == 1: # only support single case
+                    child_types.add(outer_rule.to[0])
+            for apply_type in child_types: # all T' that P goes to (#2)
+                for apply_rule in self.grammar.rules_where(nt=apply_type, name='apply_'): # apply rules of type T' (#1 and #2)
+                    # get all the lambdas for this apply
+                    lambda_type = apply_rule.to[0]
+                    for lambda_rule in self.grammar.rules_where(nt=lambda_type, name='lambda'):
+                        for child_type in child_types: # all T that P goes to (#3)
+                            if lambda_rule.to[0] == child_type: # the lambda goes to T (#4)
+                                self.abstractable_rules[child_type][parent_type].append((apply_rule, lambda_rule))
+
+
+
+        #for rule in self.grammar:
+            #if rule.name == 'apply_':
+                #print rule
+                #for l in self.grammar:
+                    #if isinstance(l, BVAddGrammarRule):
+                        #print l
+                        #print (l.nt == rule.to[0])
+                        #print l.nt, rule.to[0]
+                        #print (l.bv_args is None)
+                        #print l.bv_args
+                        #print (l.bv_type==rule.to[1])
+                        #print l.bv_type, rule.to[1]
+                ##for l in filter( lambda r: isinstance(r, BVAddGrammarRule) and (r.nt == rule.to[0]) and (r.bv_args is None) and (r.bv_type==rule.to[1]), self.grammar): # For each lambda whose "below" is the right type. bv_args are not implemented yet
+                #for l in filter( lambda r: isinstance(r, BVAddGrammarRule) and (r.nt == rule.to[0]) and (r.bv_args is None), self.grammar): # For each lambda whose "below" is the right type. bv_args are not implemented yet
+                    ##print l
+                    #for parent_rule in self.grammar:
+                        #if parent_rule.to and parent_rule.to[0] == rule.nt:
+                            ##print parent_rule
+                            #self.abstractable_rules[l.to[0]][parent_rule.nt].append( (rule,l) )
 
 
         #print "# Insertable rules:"
@@ -93,7 +126,7 @@ class InverseInlineProposal(LOTProposal):
         """
             Can we inline this? Only if its an apply whose lambda bv takes no args. ALSO, the argument must occur in the lambda, or else this could not have been created via inlining
         """
-        
+
         if n.name != "apply_":
             return False
 
@@ -102,10 +135,19 @@ class InverseInlineProposal(LOTProposal):
 
         assert (not isinstance(l.added_rule, BVUseFunctionNode)) or l.added_rule.bv_args is None # NOTE: l.added_rule.name checks if the bound variable is actually used, but only works for bv_args=None
 
+
         parent_rules = [rule.to[0] for rule in self.grammar.rules[n.parent.rule.nt]]
 
+        #print 'can inline at', n, '?'
+        #print parent_rules
+        #print (l.rule.bv_args is None or len(l.rule.bv_args) == 0)
+        ##print l.args[0].contains_function(l.added_rule.name)
+        #print l.args[0].returntype in parent_rules
+        #print self.is_valid_argument(l.args[0], a)
+        #print self.can_abstract_at(l.args[0])
+
+            #l.args[0].contains_function(l.added_rule.name) and \
         return (l.rule.bv_args is None or len(l.rule.bv_args) == 0) and \
-            l.args[0].contains_function(l.added_rule.name) and \
             l.args[0].returntype in parent_rules and \
             self.is_valid_argument(l.args[0], a) and \
             self.can_abstract_at(l.args[0])
@@ -122,20 +164,21 @@ class InverseInlineProposal(LOTProposal):
                 - Remove all repetitions of s, create a lambda
                 - and add an apply
         """
-
+        
         newt = copy(t) 
         f,b = 0.0, 0.0
             
         # ------------------
-        if random() < 0.5: # Am inverse-inlining move
+        if random() < 0.4: # Am inverse-inlining move
+
+            #print "# INVERSE-INLINE"
 
             # where the lambda goes
             try:
                 n, np = newt.sample_subnode(resampleProbability=self.can_abstract_at)
             except NodeSamplingException:
+                #print 'failed'
                 raise ProposalFailedException
-
-            # print "# INVERSE-INLINE"
 
             # Pick the rule we will use
             ir = self.abstractable_rules[n.returntype][n.parent.returntype]
@@ -145,11 +188,25 @@ class InverseInlineProposal(LOTProposal):
             assert ar.nt in parent_rules
             assert lr.nt == ar.to[0]
             
+            def replaceable(z):
+                #print z.returntype == ar.to[1]
+                #print z
+                #print z.returntype
+                #print ar
+                #print ar.to
+                #print lr.bv_type
+                #print
+                #return z.returntype == ar.to[1] and self.is_valid_argument(n, z)
+                return z.returntype == lr.bv_type and self.is_valid_argument(n, z) #how do we choose args?
             # what the argument is. Must have a returntype equal to the second apply type
-            arg_predicate = lambda z: z.returntype == ar.to[1] and self.is_valid_argument(n, z) #how do we choose args?
+            # NOPE. Must have returntype == bound variable type
+            #arg_predicate = lambda z: z.returntype == ar.to[1] and self.is_valid_argument(n, z) #how do we choose args?
             try:
-                argval, _ = n.sample_subnode(resampleProbability=arg_predicate )
+                #print n
+                argval, _ = n.sample_subnode(resampleProbability=replaceable )
+                #print 'argval', argval
             except NodeSamplingException:
+                #print 'node samp ex'
                 raise ProposalFailedException
 
             argval = copy(argval) # necessary since the argval in the tree gets overwritten
@@ -163,7 +220,8 @@ class InverseInlineProposal(LOTProposal):
 
             lambdafn = lr.make_FunctionNodeStub(self.grammar, 0.0, n) ## this must be n, not applyfn, since n will eventually be setto applyfn
             bvfn = lambdafn.added_rule.make_FunctionNodeStub(self.grammar, 0.0, None) # this takes the place of argval everywhere below
-            below.replace_subnodes(lambda x:x==argval, bvfn) # substitute below the lambda            
+            below.replace_subnodes(lambda x:x==argval, bvfn) # substitute below the lambda
+
             lambdafn.args[0] = below
 
             below.parent = lambdafn
@@ -175,17 +233,18 @@ class InverseInlineProposal(LOTProposal):
             assert self.can_inline_at(n) # this had better be true
 
             # to go forward, you choose a node, a rule, and an argument
-            f = np + (-log(len(ir))) + lp_sample_equal_to(n, argval, resampleProbability=arg_predicate)
+            f = np + (-log(len(ir))) + lp_sample_equal_to(n, argval, resampleProbability=replaceable)
             newZ = newt.sample_node_normalizer(self.can_inline_at)
             b = (log(self.can_inline_at(n)*1.0) - log(newZ))
             
         else: # An inlining move
+            #print "# INLINE"
+
             try:
                 n, np = newt.sample_subnode(resampleProbability=self.can_inline_at)
             except NodeSamplingException:
+                #print 'failed'
                 raise ProposalFailedException
-
-            #print "# INLINE"
 
             # Replace the subnodes 
             newn = n.args[0].args[0] # what's below the lambda
@@ -198,7 +257,20 @@ class InverseInlineProposal(LOTProposal):
             assert self.can_abstract_at(n) # this had better be true
             
             # figure out which rule we are supposed to use
-            possible_rules = [r for r in self.grammar.rules[n.returntype] if r.name==n.name and tuple(r.to) == tuple(n.argTypes()) ]
+            #possible_rules = [r for r in self.grammar.rules[n.returntype] if r.name==n.name and tuple(r.to)[0] == tuple(n.argTypes())[0] ]
+            possible_rules = [r for r in self.grammar.rules[n.returntype] if r.name==n.name and tuple(r.to)[0] == tuple(n.argTypes())[0] ] # made it only check first argtype since I have different types in arg and bv
+            #if len(possible_rules) > 1:
+                #print 'why does this happen?'
+                #print possible_rules
+            #if not len(possible_rules) == 1:
+                #print len(possible_rules)
+                #print n
+                #print n.name
+                #print n.argTypes()
+                #for r in self.grammar.rules[n.returntype]:
+                    #print '|', r
+                    #print r.name, r.name == n.name
+                    #print r.to
             assert len(possible_rules) == 1 # for now?
             n.rule = possible_rules[0]
 
@@ -218,6 +290,8 @@ class InverseInlineProposal(LOTProposal):
         ## and fix the generation probabilites, because otherwise they are ruined by all the mangling above
         newt.recompute_generation_probabilities(self.grammar)
         assert newt.check_parent_refs() # Can comment out -- here for debugging
+        
+        #print 'did we finish proposing??'
         
         return [newt, f-b]
             
