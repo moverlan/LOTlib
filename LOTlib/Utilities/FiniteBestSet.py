@@ -101,10 +101,14 @@ class FiniteBestSet(object):
 
                 # if we have too many elements
                 if len(self) > self.N:
-                    rr = heapq.heappop(self.Q)
+                    self.pop()
 
-                    if rr.x in self.unique_set:
-                        self.unique_set.remove(rr.x) # clean out the removed from the set
+
+    # remove worst item
+    def pop(self):
+        worst = heapq.heappop(self.Q)
+        if worst.x in self.unique_set:
+            self.unique_set.remove(worst.x) # clean out the removed from the set
 
     def get_all(self, **kwargs):
         """ Return all elements (arbitrary order). Does NOT return a copy. This uses kwargs so that we can call one 'sorted' """
