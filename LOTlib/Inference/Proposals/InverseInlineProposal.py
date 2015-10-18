@@ -47,7 +47,7 @@ class InverseInlineProposal(LOTProposal):
         #   4) its lambda goes to type T
         self.abstractable_rules = defaultdict(instantiate_dict) # Hash each nonterminal/parent nonterminal to (a,l) where a and l are the apply and lambda rules you need
         
-        for parent_type in self.grammar.nonterminals():
+        for parent_type in self.grammar.nonterminals:
             child_types = set() # set of all types that rules of parent type can go to
             for outer_rule in self.grammar.rules_where(nt=parent_type):
                 if len(outer_rule.to) == 1: # only support single case

@@ -1,15 +1,9 @@
 
 class BVRuleContextManager(object):
     
-    def __init__(self, grammar, fn, recurse_up=False):
+    def __init__(self, fn, recurse_up=False):
         """
-            This manages rules that we add and subtract in the context of grammar generation. This is a class that is somewhat
-            in between Grammar and GrammarRule. It manages creating, adding, and subtracting the bound variable rule via "with" clause in Grammar.
-            
-            NOTE: The "rule" here is the added rule, not the "bound variable" one (that adds the rule)
-            NOTE: If rule is None, then nothing happens
-            
-            This actually could go in FunctionNode, *except* that it needs to know the grammar, which FunctionNodes do not
+        This manages the state of added rules as a derivation tree is generated
         """
         self.__dict__.update(locals())
         self.added_rules = []
@@ -29,7 +23,7 @@ class BVRuleContextManager(object):
                 #print "# Adding rule ", x.added_rule
                 r = x.added_rule
                 self.added_rules.append(r)
-                self.grammar.rules[r.nt].append(r)
+                self.grammar.add_bv_rule(r)
                         
     def __exit__(self, t, value, traceback):
         
@@ -38,7 +32,7 @@ class BVRuleContextManager(object):
         
         for r in self.added_rules:
             #print "# Removing rule", r
-            self.grammar.rules[r.nt].remove(r)
+            self.grammar.remove_bv_rule(r)
             
         # reset these
         self.added_rules = []

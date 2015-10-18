@@ -102,54 +102,54 @@ def pystring(x, d=0, bv_names=None):
         if bv_names is None:
             bv_names = dict()
 
-        if x.name == "if_": # this gets translated
-            assert len(x.args) == 3, "if_ requires 3 arguments!"
+        if x._name == "if_": # this gets translated
+            assert len(x._args) == 3, "if_ requires 3 arguments!"
             # This converts from scheme (if bool s t) to python (s if bool else t)
-            b = pystring(x.args[0], d=d+1, bv_names=bv_names)
-            s = pystring(x.args[1], d=d+1, bv_names=bv_names)
-            t = pystring(x.args[2], d=d+1, bv_names=bv_names)
+            b = pystring(x._args[0], d=d+1, bv_names=bv_names)
+            s = pystring(x._args[1], d=d+1, bv_names=bv_names)
+            t = pystring(x._args[2], d=d+1, bv_names=bv_names)
             return '( %s if %s else %s )' % (s, b, t)
-        elif x.name == '':
-            assert len(x.args) == 1, "Null names must have exactly 1 argument"
-            return pystring(x.args[0], d=d, bv_names=bv_names)
-        elif x.name == ',': # comma join
-            return ','.join(map(lambda a: pystring(a, d=d, bv_names=bv_names), x.args))
-        elif x.name == "apply_":
-            assert x.args is not None and len(x.args)==2, "Apply requires exactly 2 arguments"
-            #print ">>>>", self.args
-            return '( %s )( %s )' % tuple(map(lambda a: pystring(a, d=d, bv_names=bv_names), x.args))
-        elif x.name == "or_sc_": # short-circuit or
-            return "(%s)" % ' or '.join(map(lambda a: pystring(a, d=d, bv_names=bv_names), x.args))
-        elif x.name == "and_sc_": # short-circuit and
-            return "(%s)" % ' and '.join(map(lambda a: pystring(a, d=d, bv_names=bv_names), x.args))
-        elif x.name == 'lambda':
+        elif x._name == '':
+            assert len(x._args) == 1, "Null names must have exactly 1 argument"
+            return pystring(x._args[0], d=d, bv_names=bv_names)
+        elif x._name == ',': # comma join
+            return ','.join(map(lambda a: pystring(a, d=d, bv_names=bv_names), x._args))
+        elif x._name == "apply_":
+            assert x._args is not None and len(x._args)==2, "Apply requires exactly 2 arguments"
+            #print ">>>>", self._args
+            return '( %s )( %s )' % tuple(map(lambda a: pystring(a, d=d, bv_names=bv_names), x._args))
+        elif x._name == "or_sc_": # short-circuit or
+            return "(%s)" % ' or '.join(map(lambda a: pystring(a, d=d, bv_names=bv_names), x._args))
+        elif x._name == "and_sc_": # short-circuit and
+            return "(%s)" % ' and '.join(map(lambda a: pystring(a, d=d, bv_names=bv_names), x._args))
+        elif x._name == 'lambda':
             # On a lambda, we must add the introduced bv, and then remove it again afterwards
 
             bvn = ''
             if isinstance(x, BVAddFunctionNode) and x.added_rule is not None:
-                bvn = x.added_rule.bv_prefix+str(d)
-                bv_names[x.added_rule.name] = bvn
+                bvn = x.added_rule._bv_prefix+str(d)
+                bv_names[x.added_rule._name] = bvn
 
-            assert len(x.args) == 1
-            ret = 'lambda %s: %s' % ( bvn, pystring(x.args[0], d=d+1, bv_names=bv_names) )
+            assert len(x._args) == 1
+            ret = 'lambda %s: %s' % ( bvn, pystring(x._args[0], d=d+1, bv_names=bv_names) )
 
             if isinstance(x, BVAddFunctionNode) and x.added_rule is not None:
                 try:
-                    del bv_names[x.added_rule.name]
+                    del bv_names[x.added_rule._name]
                 except KeyError:
                     x.fullprint()
 
             return ret
         else:
 
-            name = x.name
+            name = x._name
             if isinstance(x, BVUseFunctionNode):
-                name = bv_names.get(x.name, x.name)
+                name = bv_names.get(x._name, x._name)
 
-            if x.args is None:
+            if x._args is None:
                 return name
             else:
-                return name+'('+', '.join(map(lambda a: pystring(a, d=d+1, bv_names=bv_names), x.args))+')'
+                return name+'('+', '.join(map(lambda a: pystring(a, d=d+1, bv_names=bv_names), x._args))+')'
 
 
 def lambdastring(fn, d=0, bv_names=None):

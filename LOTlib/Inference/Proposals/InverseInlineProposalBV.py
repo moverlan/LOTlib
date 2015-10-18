@@ -38,8 +38,8 @@ class InverseInlineProposalBV(LOTProposal):
 
         # check that we used "apply_" instead of "apply"
         for r in self.grammar:
-            assert r.name is not "apply", "*** Need to use 'apply_' instead of 'apply' "
-            assert r.name is not "lambda_", "*** Need to use 'lambda' instead of 'lambda' "
+            assert r._name is not "apply", "*** Need to use 'apply_' instead of 'apply' "
+            assert r._name is not "lambda_", "*** Need to use 'lambda' instead of 'lambda' "
             # the asymmetry here is disturbing, but lambda is a keyword and apply is a function
 
 
@@ -50,18 +50,18 @@ class InverseInlineProposalBV(LOTProposal):
         #   4) its lambda goes to type T
         self.abstractable_rules = defaultdict(instantiate_dict) # Hash each nonterminal/parent nonterminal to (a,l) where a and l are the apply and lambda rules you need
         
-        for parent_type in self.grammar.nonterminals():
+        for parent_type in self.grammar.nonterminals:
             child_types = set() # set of all types that rules of parent type can go to
-            for outer_rule in self.grammar.rules_where(nt=parent_type):
-                if len(outer_rule.to) == 1: # only support single case
-                    child_types.add(outer_rule.to[0])
+            for outer_rule in self.grammar.rules_where(lhs=parent_type):
+                if len(outer_rule._to) == 1: # only support single case
+                    child_types.add(outer_rule._to[0])
             for apply_type in child_types: # all T' that P goes to (#2)
-                for apply_rule in self.grammar.rules_where(nt=apply_type, name='apply_'): # apply rules of type T' (#1 and #2)
+                for apply_rule in self.grammar.rules_where(lhs=apply_type, name='apply_'): # apply rules of type T' (#1 and #2)
                     # get all the lambdas for this apply
-                    lambda_type = apply_rule.to[0]
-                    for lambda_rule in self.grammar.rules_where(nt=lambda_type, name='lambda'):
+                    lambda_type = apply_rule._to[0]
+                    for lambda_rule in self.grammar.rules_where(lhs=lambda_type, name='lambda'):
                         for child_type in child_types: # all T that P goes to (#3)
-                            if lambda_rule.to[0] == child_type: # the lambda goes to T (#4)
+                            if lambda_rule._to[0] == child_type: # the lambda goes to T (#4)
                                 self.abstractable_rules[child_type][parent_type].append((apply_rule, lambda_rule))
 
 
@@ -91,12 +91,12 @@ class InverseInlineProposalBV(LOTProposal):
         allowed_bvs = set()
         for t in dropfirst(n.up_to(to=None)):  # don't count n in the bvs we allow!
             if isinstance(t, BVAddFunctionNode):
-                allowed_bvs.add(t.added_rule.name)
+                allowed_bvs.add(t.added_rule._name)
         
         for t in x:
             # we also allow bvs of things defined in t
             if isinstance(t, BVAddFunctionNode)  and t is not x:
-                allowed_bvs.add(t.added_rule.name)
+                allowed_bvs.add(t.added_rule._name)
             elif isinstance(t, BVUseFunctionNode) and (t.name not in allowed_bvs):
                 return False
         
@@ -118,7 +118,7 @@ class InverseInlineProposalBV(LOTProposal):
         assert (not isinstance(l.added_rule, BVUseFunctionNode)) or l.added_rule.bv_args is None # NOTE: l.added_rule.name checks if the bound variable is actually used, but only works for bv_args=None
 
 
-        parent_rules = [rule.to[0] for rule in self.grammar.rules[n.parent.rule.nt]]
+        parent_rules = [rule._to[0] for rule in self.grammar.rules_where(lhs=n.parent.rule.nt)]
 
         #print 'can inline at', n, '?'
         #print parent_rules
