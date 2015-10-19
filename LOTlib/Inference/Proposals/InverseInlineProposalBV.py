@@ -37,9 +37,9 @@ class InverseInlineProposalBV(LOTProposal):
         LOTProposal.__init__(self, grammar)
 
         # check that we used "apply_" instead of "apply"
-        for r in self.grammar:
-            assert r._name is not "apply", "*** Need to use 'apply_' instead of 'apply' "
-            assert r._name is not "lambda_", "*** Need to use 'lambda' instead of 'lambda' "
+        #for r in self.grammar:
+            #assert r._name is not "apply", "*** Need to use 'apply_' instead of 'apply' "
+            #assert r._name is not "lambda_", "*** Need to use 'lambda' instead of 'lambda' "
             # the asymmetry here is disturbing, but lambda is a keyword and apply is a function
 
 
