@@ -29,6 +29,21 @@ F = False
 
 # ------------------------------------------------------------------------------------------------------------
 
+def cached(fn):
+    """
+    decorator to cache results of a methods that are used as read-only properties
+    useful for expensive properties of immutable objects
+    """
+    name = '_cached_' + fn.__name__
+    def cached_fn(self):
+        try:
+            value = getattr(self, name)
+        except AttributeError:
+            setattr(self, name, fn(self))
+        return getattr(self, name)
+    return cached_fn
+
+    
 def first(x):
     return x[0]
 def second(x):

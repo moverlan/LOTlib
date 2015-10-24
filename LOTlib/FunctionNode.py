@@ -9,237 +9,68 @@ import re
 from copy import copy, deepcopy
 from math import log
 from random import random
-#from LOTlib.BVRuleContextManager import BVRuleContextManager
+from collections import defaultdict
 from LOTlib.Miscellaneous import lambdaTrue, lambdaOne, Infinity
 from LOTlib.Primitive import Primitives
+from LOTlib.TerminalNode import TerminalNode
+from Util import cached
 
 class Immutable(Exception):
     pass
 
-
-# ------------------------------------------------------------------------------------------------------------
-# Helper functions
-
-def isFunctionNode(x):
-    # Just because this is nicer, and allows us to map, etc.
-    """Returns true if *x* is of type FunctionNode."""
-    return isinstance(x, FunctionNode)
-
-
-#def cleanFunctionNodeString(x):
-    #"""Makes FunctionNode strings easier to read."""
-    #s = re.sub("lambda", u"\u03BB", str(x))  # make lambdas the single char
-    #s = re.sub("_", '', s)  # remove underscores
-    #return s
-
-
-# ------------------------------------------------------------------------------------------------------------
-# Handle exceptions when sampling
-
-class NodeSamplingException(Exception):
-    """Raised when we try to sample a subnode, but nothing has nonzero probability."""
-    pass
-
-
-# ------------------------------------------------------------------------------------------------------------
-# FunctionNode main class
-
-class FunctionNode(object):
-    """FunctionNode main class.
-
-    Arguments
-    ---------
-    function : Primitive
-        LOTlib.Primitive object that can be __call__ed and __str__ed
-    args : doc?
-        Arguments of the function
-    gen_prob : float
-        *Normalized* generation probability.
-    rule : doc?
-        The rule that was used in generating the FunctionNode
-    bv : doc?
-        Stores the actual *rule* that was added (so that we can re-add it when we loop through the tree).
-
+class FunctionNode(NonterminalNode):
+    """
+    A Nonterminal that acts as a function of its children
     """
 
-    def __init__(self, parent, rule, bv_state, gen_prob=0.0, varname=None):
-        self._parent = parent
-        self._rule = rule
-        self._bv_state = bv_state
-        self._function = rule.function
-        if self._function:
-            self._name = rule.function.name
-        else:
-            self._name = ''
-        if varname: # a lambda node, insert the variable
-            self._args[0] = varname
-        self._children = copy(rule._to)
-        self._gen_prob = gen_prob
-
-        self.cached_str = None
-        self.cached_pystr = None
-        self.cached_logprob = None
-        
-    @property
-    def parent(self):
-        return self._parent
-
-    @property
-    def rule(self):
-        return self._rule
-
-    @property
-    def bv_state(self):
-        return self._bv_state
-
-    @property
-    def function(self):
-        return self._function
-
-    @property
-    def children(self):
-        return self.children
-
-    def set_child(self, i, node):
-        self.children[i] = node
-
-    @property
-    def descendants(self):
-        for child in filter(isFunctionNode, self.children):
-            yield child
-
-    @property
-    def log_prob(self):
-        """Compute the log probability of a tree."""
-        if not self.cached_logprob:
-            self.cached_logprob = self.gen_prob + sum([child.log_prob() for child in self.children])
-        return self.cached_logprob
-
-    @property
-    def root(self):
-        current = self
-        while not current.is_root:
-            current = current.parent
-        return current
-
-    @property
-    def is_root(self):
-        return self.parent is None
-
-    def __iter__(self):
-        """
-        Iterater for subnodes.
-        """
-        yield self
-
-        for child in self.children:
-            for gchild in child:
-                yield gchild
-
-    def __str__(self):
-        if self.cached_str is None:
-            argstrings = [str(arg) for arg in self.args]
-            if self._rule._string:
-                self.cached_str = self._rule._string.format(*argstrings)
-            elif self.function:
-                self.cached_str = str(self.function).format(*argstrings)
-            else:
-                for i, arg in enumerate(argstrings):
-                    try:
-                        # lol
-                        terminal = eval(arg)
-                        if type(terminal) is str:
-                            argstrings[i] = terminal
-                    except:
-                        #print arg
-                        pass
-                self.cached_str = ''.join(argstrings)
-        return self.cached_str
-
-    @property
-    def pystring(self):
-        def ffff(arg):
-            if type(arg) is str:
-                return arg
-            else:
-                return arg.pystring
-
-        if self.cached_pystrrrr is None:
-            argstrings = [ffff(arg) for arg in self.args]
-            if self.function:
-                self.cached_pystrrrr = self.function.pystring.format(*argstrings)
-            #elif self._rule._string:
-                #self.cached_pystrrrr = self._rule._string.format(*argstrings)
-            else:
-                self.cached_pystrrrr = '+'.join(argstrings)
-        return self.cached_pystrrrr
-
-    def __ne__(self, other):
-        return not self == other
-
-    def __eq__(self, other):
-        return fullstring(self) == fullstring(other)
-
-    def __hash__(self):
-        return hash(str(self))
-
-    def __cmp__(self, other):
-        return cmp(hash(self), hash(other))
+    def __init__(self, parent, rule, gen_prob):
+        super(NonterminalNode, self).__init__(parent, rule, gen_prob)
 
 
 
-    """
-    this should be invariant, so put it in a test
-    def argTypes(self):
-        # A list of the strings or returntypes of by args
-        # This should be equal to what my rule produced
-        if self.args is None:
-            return None
-        else:
-           return [a._returntype if isinstance(a, FunctionNode) else a for a in self.args]
-    """
+    ##this should be invariant, so put it in a test
+    #def argTypes(self):
+        ## A list of the strings or returntypes of by args
+        ## This should be equal to what my rule produced
+        #if self.args is None:
+            #return None
+        #else:
+           #return [a._returntype if isinstance(a, FunctionNode) else a for a in self.args]
 
-    def contains_function(self, name):
-        """Checks if the FunctionNode contains x as function below."""
-        doesit = False
-        for node in self:
-            if node.name == name:
-                doesit = True
-                break
-        return doesit
+    #def sample_subnode(self, resampleProbability=lambdaOne):
+        #"""Sample a subnode at random.
 
-    def n_nodes(self):
-        """Returns the subnode count."""
-        return self.count_nodes()
+        #We return a sampled tree and the log probability of sampling it
 
-    def count_nodes(self, predicate=lambdaTrue):
-        """Returns the subnode count."""
-        return len(filter(predicate, list(iter(self))))
+        #"""
+        #Z = self.sample_node_normalizer(resampleProbability=resampleProbability) # the total probability
+        #if not (Z > 0.0):
+            #raise NodeSamplingException
 
-    def sample_subnode(self, resampleProbability=lambdaOne):
-        """Sample a subnode at random.
+        #r = random() * Z # now select a random number (giving a random node)
 
-        We return a sampled tree and the log probability of sampling it
+        #for t in self:
+            #trp = resampleProbability(t)
+            #r -= 1.0 * trp
+            #if r <= 0:
+                #return [t, log(trp) - log(Z)]
 
-        """
-        Z = self.sample_node_normalizer(resampleProbability=resampleProbability) # the total probability
-        if not (Z > 0.0):
-            raise NodeSamplingException
+        #assert False, "Should not get here"
 
-        r = random() * Z # now select a random number (giving a random node)
-
-        for t in self:
-            trp = resampleProbability(t)
-            r -= 1.0 * trp
-            if r <= 0:
-                return [t, log(trp) - log(Z)]
-
-        assert False, "Should not get here"
-
-    @property
-    def debuginfo(self):
-        return ' | '.join([str(id(self)), self.rule.lhs, str(len(self.children))+' children', str(self.function)])
+    #@property
+    #def debuginfo(self):
+        #return ' | '.join([str(id(self)), self.rule.lhs, str(len(self.children))+' children', str(self.function)])
     
+
+
+
+
+
+
+
+
+
+
 
     #def iterdepth(self):
         #"""Iterates subnodes, yielding node and depth."""
@@ -778,6 +609,33 @@ class FunctionNode(object):
             #a.parent = fn
 
         #return fn
+
+# ------------------------------------------------------------------------------------------------------------
+# Helper functions
+
+#def isFunctionNode(x):
+    ## Just because this is nicer, and allows us to map, etc.
+    #"""Returns true if *x* is of type FunctionNode."""
+    #return isinstance(x, FunctionNode)
+
+
+#def cleanFunctionNodeString(x):
+    #"""Makes FunctionNode strings easier to read."""
+    #s = re.sub("lambda", u"\u03BB", str(x))  # make lambdas the single char
+    #s = re.sub("_", '', s)  # remove underscores
+    #return s
+
+
+# ------------------------------------------------------------------------------------------------------------
+# Handle exceptions when sampling
+
+#class NodeSamplingException(Exception):
+    #"""Raised when we try to sample a subnode, but nothing has nonzero probability."""
+    #pass
+
+
+# ------------------------------------------------------------------------------------------------------------
+# FunctionNode main class
 
 
 ## NOTE: This must come at the end to meet dependencies

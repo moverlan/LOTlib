@@ -1,11 +1,7 @@
-from FunctionNode import FunctionNode#, BVAddFunctionNode, BVUseFunctionNode
+# *- coding: utf-8 -*-
+
 from copy import copy
-from LOTlib.Miscellaneous import None2Empty
 from LOTlib.Primitive import Primitives
-
-class Deprecated(Exception):
-    pass
-
 
 class GrammarRule(object):
     """
@@ -40,8 +36,8 @@ class GrammarRule(object):
     """
     def __init__(self, lhs, fname, to, p=1.0, string=None, pystring=None, bv_prefix=None):
         self._lhs = lhs
-        if name:
-            self._function = getattr(Primitives, name)
+        if fname:
+            self._function = getattr(Primitives, fname)
             self._fname = self._function.name
         else:
             self._function = Primitives.concat
@@ -51,7 +47,10 @@ class GrammarRule(object):
         self._p = float(p)
         self._string = string
         self._pystring = pystring
-        self._bv_prefix = bv_prefix
+        if self._is_lambda and bv_prefix is None:
+            self._bv_prefix = self._to[0].lower()
+        else:
+            self._bv_prefix = bv_prefix
 
     @property
     def lhs(self):
@@ -73,6 +72,10 @@ class GrammarRule(object):
     def bv_type(self):
         if self.is_lambda:
             return self.to[0]
+
+    @property
+    def to(self):
+        return self._to
 
     @property
     def p(self):
@@ -106,15 +109,11 @@ class GrammarRule(object):
     def __hash__(self):
         return hash(str(self))
 
-    def __repr__(self):
+    def __str__(self):
         """
-        Print string in format: 'NT -> [TO]   p=1.0'.
+        returns string in format: 'NT -> [TO]   p=1.0'.
         """
-        return str(self._lhs) +
-               ' -> ' +
-               self._name +
-               str(self._to) +
-               '\t p='+str(self._p)
+        return str(self.lhs)+' -> '+self.function.name+str(self.to)+'\t p='+str(self.p)
 
     #def short_str(self):
         #"""Print string in format: 'NT -> [TO]'."""
