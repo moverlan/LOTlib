@@ -4,7 +4,7 @@ import numpy as np
 from contextlib import contextmanager
 import math
 from LOTlib.Miscellaneous import cached
-from LOTlib.GrammarRule import GrammarRule
+#from LOTlib.GrammarRule import GrammarRule
 from LOTlib.NonterminalNode import NonterminalNode
 from LOTlib.TerminalNode import TerminalNode
 
@@ -98,6 +98,9 @@ class Grammar:
 
     def random(self, lhs, node=None):
         rules = list(self.rules_where(lhs=lhs))
+        if len(rules) == 0:
+            from ipdb import set_trace as BP
+            BP()
         return np.random.choice(range(len(rules)), p=self.probs(lhs))
 
     #def make_pick_rule_fn(self):
@@ -158,8 +161,8 @@ class Grammar:
             rule = self.get_rule(lhs, index)
             node = NonterminalNode(None, rule, 1.0, self._rule_state)
 
-        with self.context(node):
-            for i, to in enumerate(node.rule.to):
+        for i, to in enumerate(node.rule.to):
+            with self.context(node):
                 if to in self.nonterminals:
                     lhs = to
                     index = chooser(self, lhs=lhs, node=node)

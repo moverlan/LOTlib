@@ -12,7 +12,7 @@ class GrammarRule(object):
     lhs : str
         the nonterminal
     fname : str
-        the name of the function, or something falsy if a regular expansion
+        the name of the function, or something falsy if a simple nonterminal of type A->B
     to : list<str>
         the types of the arguments to the function, or the terminals and types to expand to
     p (optional) : float
@@ -40,15 +40,15 @@ class GrammarRule(object):
             self._function = getattr(Primitives, fname)
             self._fname = self._function.name
         else:
-            self._function = Primitives.concat
-            self._fname = ''
+            self._function = Primitives.nonterminal
+            self._fname = 'nonterminal'
         self._is_lambda = (self._fname == 'lambda_')
         self._to = to
         self._p = float(p)
         self._string = string
         self._pystring = pystring
         if self._is_lambda and bv_prefix is None:
-            self._bv_prefix = self._to[0].lower()
+            self._bv_prefix = self._to[0][0].lower()
         else:
             self._bv_prefix = bv_prefix
 
@@ -80,6 +80,10 @@ class GrammarRule(object):
     @property
     def p(self):
         return self._p
+
+    @property
+    def string(self):
+        return self._string
 
     @property
     def bv_prefix(self):

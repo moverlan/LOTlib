@@ -5,6 +5,9 @@ from LOTlib.Miscellaneous import cached
 from copy import copy
 from LOTlib.TerminalNode import TerminalNode
 
+def Immutable(Exception):
+    pass
+
 class NonterminalNode(Node):
     """
     Arguments
@@ -17,7 +20,7 @@ class NonterminalNode(Node):
         *Normalized* log generation probability.
     """
 
-    def __init__(self, parent, rule, gen_prob, rule_state=None):
+    def __init__(self, parent, rule, gen_prob, state=None):
         super(NonterminalNode, self).__init__(parent)
         self._rule = rule
         self._gen_prob = gen_prob
@@ -27,10 +30,12 @@ class NonterminalNode(Node):
             self._rule_state = rule_state
         self._children = [None for _ in rule._to]
         if rule.is_lambda:
-            self.update_state(rule)
+            new_rule = self.state.update_rules(rule)
+            child = self.set_child(0, NonterminalNode(self, new_rule, 1.0))
+            child.set_child(0, BVNode(child, state))
 
-    def __call__(self):
-        return 
+    #def __call__(self):
+        #return self.
 
     @property
     def children(self):
@@ -39,10 +44,25 @@ class NonterminalNode(Node):
     def child(self, i):
         return self.children[i]
 
+    @property
+    def varname(self):
+        if not self.is_lambda:
+            raise Exception('only lambda nodes have a varname')
+        return child.child(0).string
+
     def set_child(self, i, node):
-        if ((self.rule.is_lambda and not i == 0) or (not self.rule.is_lambda)) and self.children[i] is not None:
-            raise Immutable()
-        self.children[i] = node
+        if node.rule.is_lambda and i == 0 and self.children[i] is not None: # special handling for lambda's first arg, since it gets set by constructor
+            # assert invariances -- first child already set
+            # and its var is the most recent bv
+            child = self.child(0)
+            assert child is not None
+            varname = self.state.rules[node.rule.bv_type][-1].to[0] # the most recent rule's arg; x1 in BV -> x1
+            assert self.varname == varname
+        else:
+            if self.children[i] is not None:
+                raise Immutable()
+            self.children[i] = node
+            return node
 
     @property
     def rule(self):
@@ -50,11 +70,11 @@ class NonterminalNode(Node):
 
     @property
     def function(self):
-        function = self.rule.function
-        if not function:
-            return 'nonterminal'
-        else:
-            return function
+        return self.rule.function
+
+    @property
+    def fname(self):
+        return self.function.name
 
     @property
     def rule_state(self):
@@ -74,6 +94,7 @@ class NonterminalNode(Node):
         """
         return 1 + sum([child.size for child in self.children])
 
+
     def __iter__(self):
         """
         Iterates through the full tree for which this node is the root
@@ -89,7 +110,7 @@ class NonterminalNode(Node):
         """
         for node in self:
             try:
-                if node.function.name == fname:
+                if node.fname == fname:
                     yield node
             except AttributeError: # not a function node
                 pass
@@ -97,7 +118,10 @@ class NonterminalNode(Node):
     @cached
     def __str__(self):
         args = [str(child) for child in self.children]
-        return self.function.to_string(*args)
+        if self.rule.string:
+            return self.rule.string.format(*args)
+        else:
+            return self.function.to_string(*args)
 
     @property
     @cached
@@ -121,22 +145,6 @@ class NonterminalNode(Node):
 
     def __cmp__(self, other):
         return cmp(hash(self), hash(other))
-
-    def update_state(self, rule):
-        assert rule.is_lambda
-        # copy-on-write
-        # shallow copy dict
-        self._rule_state = copy(self.rule_state)
-        # self._rule_state now points to new dict, but each key points to original list, 
-        # shallow copy the bv rule list -- 
-        state = self.rule_state[rule.bv_type] = copy(self.rule_state[rule.bv_type])
-        # the bv rule's key now points to new list, but list elements point to original rules
-        varname = rule.bv_prefix + str(len(state)+1)       # unique name for this var
-        new_rule = rule.make_bv_rule(1.0, varname)   # make the rule
-        state.append(new_rule)
-        self.set_child(0, varname) # replace it with a terminal
-
-
 
 
 

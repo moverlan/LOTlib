@@ -1,87 +1,106 @@
 # -*- coding: utf-8 -*-
 
 import inspect
-import operator
+from operator import concat
 
 """
-Decorators that set up a primitive object, the basic unit of computation in a function tree.
+Class and decorators that set up a primitive object, the basic unit of computation in a function tree.
 A primitive has three methods:
     __call__(*args) : the computation this primitive performs
-    __str__() : returns a human readable string
-    pystring(): returns a python-eval-able string
+    to_string() : returns a human readable string
+    to_pystring(): returns a python-eval-able string
 """
 
-class PrimitiveContainer(object): # can't setattr on bare object
-    pass
-# store all registered primitives
-Primitives = PrimitiveContainer()
+# container to store all registered primitives
+# takes one parameter, name, the name of the identifier for the object
+# (so pystring knows how to call itself)
+class PrimitiveContainer(object):
+    def __init__(self, name):
+        self.name = name
+        self._primitives = []
+
+    # decorator to turn a function into a primitive object and
+    # store it in self
+    def make(self, fn):
+        return self.register(Primitive(fn, self.name))
+
+    def register(self, p):
+        self._primitives.append(p)
+        setattr(self, p.fn.__name__, p)
+        return p
+
+    def __iter__(self):
+        for p in self._primitives:
+            yield p
+
+Primitives = PrimitiveContainer('Primitives')
 
 
 class Primitive(object):
-    def __init__(self, fn):
+    def __init__(self, fn, container_name):
         self.fn = fn
-        self.name = fn.__name__
+        self.container_name = container_name
         n_args = len(inspect.getargspec(fn).args)
-        self._string = self.name+'('+','.join(['{'+str(i)+'}' for i in range(n_args)])+')'
-        self._pystring = 'Primitives.'+self._string
+        self.string = self.name+'('+','.join(['{'+str(i)+'}' for i in range(n_args)])+')'
+        self.pystring = self.container_name + '.' + self.string
+
+    @property
+    def name(self):
+        return self.fn.__name__
 
     def __call__(self, *args):
         return self.fn(*args)
 
-    def __str__(self):
-        return self.to_string()
+    #def __str__(self):
+        #return self.to_string()
 
     def to_string(self, *args):
-        return self._string.format(*args)
+        return self.string.format(*args)
 
     def to_pystring(self, *args):
-        return self._pystring.format(*args)
-
-
-    # for functions with a variable number of arguments
-    # decorators to make a instance methods
+        return self.pystring.format(*args)
+    
+    # decorators to overwrite the default functions
     def stringfn(self, fn):
         self.to_string = fn
 
     def pystringfn(self, fn):
         self.to_pystring = fn
 
-def primitive(fn):
-    obj = Primitive(fn)
-    setattr(Primitives, fn.__name__, obj)
-    return obj
 
 ####################
 # Basic primitives supplied by the framework
 ####################
 
-@primitive
-def apply_(fn, args):
-    return fn(*args)
+@Primitives.make
+def apply_(fn, arg):
+    from ipdb import set_trace as bp
+    bp()
+    return fn(arg)
 
 apply_.string = '{0} ({1})'
 apply_.pystring = '({0})({1})'
 
-@primitive
+@Primitives.make
 def lambda_(varname, body):
-    pass
+    return body
 
 lambda_.string = 'λ{0}.{1}'
 lambda_.pystring = 'lambda {0}: {1}'
 
-@primitive
+@Primitives.make
 def concat(*args):
-    return reduce(operator.concat, args)
+    return reduce(concat, args)
 
 @concat.stringfn
-def concat_str(self, *args):
+def concat_stringfn(*args):
     return ''.join(args)
 
 @concat.pystringfn
-def concat_pystr(self, *args):
+def concat_pystringfn(*args):
     return '+'.join(args)
 
-@primitive
+@Primitives.make
 def nonterminal(arg):
     return arg
 
