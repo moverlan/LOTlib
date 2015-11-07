@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from LOTlib.Node import Node
+from LOTlib.Node import Node, State
 from LOTlib.Miscellaneous import cached
-from copy import copy
-from LOTlib.TerminalNode import TerminalNode
+#from LOTlib.TerminalNode import TerminalNode
 
 def Immutable(Exception):
     pass
@@ -21,15 +20,12 @@ class NonterminalNode(Node):
     """
 
     def __init__(self, parent, rule, gen_prob, state=None):
-        super(NonterminalNode, self).__init__(parent)
+        super(NonterminalNode, self).__init__(parent, state)
         self._rule = rule
         self._gen_prob = gen_prob
-        if parent:
-            self._rule_state = parent.rule_state
-        else:
-            self._rule_state = rule_state
         self._children = [None for _ in rule._to]
         if rule.is_lambda:
+            self.state = copy(self.parent.state)
             new_rule = self.state.update_rules(rule)
             child = self.set_child(0, NonterminalNode(self, new_rule, 1.0))
             child.set_child(0, BVNode(child, state))
@@ -77,10 +73,6 @@ class NonterminalNode(Node):
         return self.function.name
 
     @property
-    def rule_state(self):
-        return self._rule_state
-
-    @property
     @cached
     def log_prob(self):
         """Compute the log probability of a tree."""
@@ -114,6 +106,11 @@ class NonterminalNode(Node):
                     yield node
             except AttributeError: # not a function node
                 pass
+
+    @staticmethod
+    def make_root(rule, gen_prob, rules):
+        return NonterminalNode(None, rule, gen_prob, State(rules))
+
 
     @cached
     def __str__(self):

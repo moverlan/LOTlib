@@ -1,7 +1,6 @@
 # *- coding: utf-8 -*-
 
 from copy import copy
-from LOTlib.Primitive import Primitives
 
 class GrammarRule(object):
     """
@@ -36,12 +35,9 @@ class GrammarRule(object):
     """
     def __init__(self, lhs, fname, to, p=1.0, string=None, pystring=None, bv_prefix=None):
         self._lhs = lhs
-        if fname:
-            self._function = getattr(Primitives, fname)
-            self._fname = self._function.name
-        else:
-            self._function = Primitives.nonterminal
-            self._fname = 'nonterminal'
+        if not fname:
+            fname = 'nonterminal'
+        self._function = getattr(primitives, fname)
         self._is_lambda = (self._fname == 'lambda_')
         self._to = to
         self._p = float(p)
@@ -62,7 +58,7 @@ class GrammarRule(object):
 
     @property
     def fname(self):
-        return self._fname
+        return self.function.name
 
     @property
     def is_lambda(self):
@@ -104,6 +100,7 @@ class GrammarRule(object):
             raise Exception('Only lambdas make bv rules')
         return GrammarRule(self.bv_type, None, [varname], p)
 
+
     def __eq__(self, other):
         return hash(self) == hash(other)
 
@@ -118,6 +115,7 @@ class GrammarRule(object):
         returns string in format: 'NT -> [TO]   p=1.0'.
         """
         return str(self.lhs)+' -> '+self.function.name+str(self.to)+'\t p='+str(self.p)
+
 
     #def short_str(self):
         #"""Print string in format: 'NT -> [TO]'."""

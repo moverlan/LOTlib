@@ -12,7 +12,9 @@ class Node(object):
         self._parent = parent
         if state is None:
             assert parent is not None
-            self.state = parent.state
+            self._state = parent.state
+        else:
+            self._state = state
 
     def __str__(self):
         raise NotImplementedError()
@@ -62,26 +64,25 @@ class Node(object):
     def is_root(self):
         return self.parent is None
 
+    @property
+    def rule_state(self):
+        return self._state.rules
 
-class State(object):
+
+class RuleState(object):
     """
-    State objects hold information about the state of nodes in a function tree
-    It includes the set of all rules that are available, and the values
-    that have been assigned to bound variables
+    State objects hold information about the state of the rules as
+    function nodes are expanded
     This class uses copy-on-write semantics to minimize memory usage
     """
 
-    def __init__(self, rules={}, value={}):
+    def __init__(self, rules={}):
         self._rules = rules
-        self._value = value
-        self._stored_value = None
 
-    def store(self, value):
-        """
-        Stores the computed value of the argument to an apply statement
-        """
-        self._stored_value = value
-  
+    @property
+    def rules(self):
+        return self._rules
+
     def update_rules(self, rule):
         """
         Makes a new bv rule from the supplied lambda rule, updates the state with it
@@ -91,29 +92,12 @@ class State(object):
         self._rules = copy(self._rules)
         # self._rule_state now points to new dict, but each key points to original list, 
         # shallow copy the bv rule list -- 
-        state = self.rule_state[rule.bv_type] = copy(self.rule_state[rule.bv_type])
+        state = self.rules[rule.bv_type] = copy(self.rules[rule.bv_type])
         # the bv rule's key now points to new list, but list elements point to original rules
         varname = rule.bv_prefix + str(len(state)+1)       # unique name for this var
         new_rule = rule.make_bv_rule(1.0, varname)   # make the rule
         state.append(new_rule)
         
-
-    @contextmanager
-    def bind_stored_to(varname):
-        """
-        binds the stored value (from previous apply) to the given variable
-        and unbinds it on exit
-        """
-        self._value[varname] = self._stored_value
-        self._stored_value = None
-        yield
-        del self._value[varname]
-
-    def value(self, varname):
-        return self._value(varname)
-
-    def has_stored_value(self):
-        return self._stored_value is not None
 
 
 

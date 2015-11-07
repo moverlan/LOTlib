@@ -3,7 +3,7 @@
 from LOTlib.Node import Node
 
 class TerminalNode(Node):
-    def __init__(self, parent, state, string):
+    def __init__(self, parent, string):
         super(TerminalNode, self).__init__(parent)
         self.string = string
 

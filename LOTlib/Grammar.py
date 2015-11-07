@@ -5,18 +5,18 @@ from contextlib import contextmanager
 import math
 from LOTlib.Miscellaneous import cached
 #from LOTlib.GrammarRule import GrammarRule
-from LOTlib.NonterminalNode import NonterminalNode
-from LOTlib.TerminalNode import TerminalNode
+#from LOTlib.NonterminalNode import NonterminalNode
+#from LOTlib.TerminalNode import TerminalNode
 
 class Grammar:
     """
     oyea
     """
-    def __init__(self, rules, bv_p=1.0, start='START'):
+    def __init__(self, primitives, rules, bv_p=1.0, start='START'):
         self._bv_p = bv_p
         self._start = start
         self._rules = {}  # A dict from nonterminals to lists of GrammarRules.
-        self._rule_state = {} # like self._rules but is updated dynamically by self.context
+        self._rule_state = {}
         # TODO get params from rules
         self._params = {} # params for production probs. dict from name to (lhs, rule_index) pair
         for rule in rules:
@@ -91,17 +91,77 @@ class Grammar:
     def Z(self, lhs):
         return np.sum(self.probs(lhs, normalized=False))
 
+    def gen_prob(self, rule):
+        return math.log(rule.p / self.Z(rule.lhs))
+
 
     #####
     # Generation
     #####
 
+    def generate(self, chooser=None, node=None):
+        """
+        Generate a new function node with this grammar
+
+        Arguments:
+            chooser (function): Function that takes a nonterminal and node for context, and
+                returns a rule with lhs = that nonterminal
+            node (FunctionNode): Node to generate from. If none then we use start node
+        """
+
+        if chooser is None:
+            chooser = self.random
+
+        if node is None:
+            index = chooser(self.start, None)
+            node = NonterminalNode.make_root(rule, self.gen_prob(rule), self.rules)
+
+        for i, child_string in enumerate(node.rule.to):
+            if child_string in self.nonterminals:
+                with self.context(node):
+                    rule = self.chooser(lhs=child_string, node=node)
+                    new_node = NonterminalNode(node, rule, self.gen_prob(rule))
+                    node.set_child(i, new_node)
+                    self.generate(chooser, node.child(i))
+            else:
+                node.set_child(i, TerminalNode(node, child_string))
+
+        return node
+
+    # wraps a function that returns an index so that it returns a rule
+    def chooser(index_chooser):
+        def rule_chooser(self, lhs, node=None):
+            index = index_chooser(lhs, node)
+            return self.get_rule(lhs, index)
+        return rule_chooser
+
+    @chooser
     def random(self, lhs, node=None):
         rules = list(self.rules_where(lhs=lhs))
         if len(rules) == 0:
             from ipdb import set_trace as BP
             BP()
         return np.random.choice(range(len(rules)), p=self.probs(lhs))
+
+    @chooser
+    def manual_input(self, lhs, node):
+        print node.root
+        rules = self.rules_where(lhs=lhs)
+        for i, rule in enumerate(rules):
+            print '[' + str(i+1) + '] ' + rule
+        while True:
+            selection = int(raw_input())-1
+            if selection in range(1, len(rules)):
+                return selection
+            else:
+                print 'nope'
+
+    def from_list(self, rule_indexes):
+        @chooser
+        def frm_list(self, lhs, node):
+            for i in rule_indexes:
+                yield i
+        return frm_list
 
     #def make_pick_rule_fn(self):
         #sofar = [self._start]
@@ -127,54 +187,6 @@ class Grammar:
             #return (r, gp)
         #return pick_rule
 
-    def manual_input(self, lhs, node):
-        print node.root
-        rules = self.rules_where(lhs=lhs)
-        for i, rule in enumerate(rules):
-            print '[' + str(i+1) + '] ' + rule
-        while True:
-            selection = int(raw_input())-1
-            if selection in range(1, len(rules)):
-                return selection
-            else:
-                print 'nope'
-
-    def from_list(self, rule_indexes):
-        def frm_list(self, lhs, node):
-            for i in rule_indexes:
-                yield i
-        return frm_list
-
-    def generate(self, chooser=random, node=None):
-        """
-        Generate a new function node with this grammar
-
-        Arguments:
-            chooser (function): Function that takes a nonterminal and node for context, and
-                returns the index of a rule with lhs = that nonterminal
-            node (FunctionNode): Node to generate from. If none then we use start node
-        """
-
-        if node is None:
-            lhs = self.start
-            index = chooser(self, lhs, None)
-            rule = self.get_rule(lhs, index)
-            node = NonterminalNode(None, rule, 1.0, self._rule_state)
-
-        for i, to in enumerate(node.rule.to):
-            with self.context(node):
-                if to in self.nonterminals:
-                    lhs = to
-                    index = chooser(self, lhs=lhs, node=node)
-                    rule = self.get_rule(lhs, index)
-                    gen_prob = math.log(rule.p / self.Z(lhs))
-                    new_node = NonterminalNode(node, rule, gen_prob)
-                    node.set_child(i, new_node)
-                    self.generate(chooser, node.child(i))
-                else:
-                    node.set_child(i, TerminalNode(node, to))
-
-        return node
 
     #def first_unique_chars(strings):
         #"""
