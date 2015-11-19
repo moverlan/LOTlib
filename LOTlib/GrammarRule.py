@@ -1,7 +1,5 @@
 # *- coding: utf-8 -*-
 
-from copy import copy
-
 class GrammarRule(object):
     """
     A rule for a Grammar
@@ -10,8 +8,6 @@ class GrammarRule(object):
     ---------
     lhs : str
         the nonterminal
-    fname : str
-        the name of the function, or something falsy if a simple nonterminal of type A->B
     to : list<str>
         the types of the arguments to the function, or the terminals and types to expand to
     p (optional) : float
@@ -33,41 +29,38 @@ class GrammarRule(object):
     >> GrammarRule( "EXPR", None, ['term', 'NONTERM', 'term'], ...) -> EXPR-> 'term'+NONTERM+'term'
 
     """
-    def __init__(self, lhs, fname, to, p=1.0, string=None, pystring=None, bv_prefix=None):
+    def __init__(self, lhs, primitive, to, p=1.0, **kwargs):
         self._lhs = lhs
-        if not fname:
-            fname = 'nonterminal'
-        self._function = getattr(primitives, fname)
-        self._is_lambda = (self._fname == 'lambda_')
+        self._primitive = primitive
         self._to = to
         self._p = float(p)
-        self._string = string
-        self._pystring = pystring
-        if self._is_lambda and bv_prefix is None:
-            self._bv_prefix = self._to[0][0].lower()
-        else:
-            self._bv_prefix = bv_prefix
+        self._kwargs = kwargs # to pass along to node constructor
+
 
     @property
     def lhs(self):
         return self._lhs
 
-    @property
-    def function(self):
-        return self._function
+    #@property
+    #def primitive(self):
+        #return self._primitive
+
+    #@property
+    #def fname(self):
+        #return self.function.name
+
+    #@property
+    #def is_lambda(self):
+        #return self._is_lambda
 
     @property
-    def fname(self):
-        return self.function.name
+    def primitive(self):
+        return self._primitive
 
-    @property
-    def is_lambda(self):
-        return self._is_lambda
-
-    @property
-    def bv_type(self):
-        if self.is_lambda:
-            return self.to[0]
+    #@property
+    #def bv_type(self):
+        #if self.is_lambda:
+            #return self.to[0]
 
     @property
     def to(self):
@@ -77,29 +70,26 @@ class GrammarRule(object):
     def p(self):
         return self._p
 
-    @property
-    def string(self):
-        return self._string
+    #@property
+    #def string(self):
+        #return self._string
 
-    @property
-    def bv_prefix(self):
-        if self.is_lambda:
-            return self._bv_prefix
-        else:
-            return None
-
-    def make_bv_rule(self, p, varname):
+    def make_node(self, parent_node):
         """
-        If this is a lambda rule, this returns a new rule to generate its bound var
-        varname: (str) the name of the introduced variable
-        p: the unnormalized probability of choosing this rule
-        Ex:
-            TOKEN -> x1, p=1.0
+        creates a new node of this rule's primitive, passing along
+        all arguments
         """
-        if not self.is_lambda:
-            raise Exception('Only lambdas make bv rules')
-        return GrammarRule(self.bv_type, None, [varname], p)
+        #print self._primitive
+        #print self._kwargs
+        return self._primitive(parent=parent_node, rule=self, **self._kwargs)
 
+    #def make_root(self, gen_prob, rules, **kwargs):
+        #"""
+        #creates a new root node
+        #"""
+        #node = self.make_node(None, gen_prob)
+        #node.init_state(rules)
+        #return node
 
     def __eq__(self, other):
         return hash(self) == hash(other)

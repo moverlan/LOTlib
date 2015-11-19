@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 
-from LOTlib.TerminalNode import TerminalNode
+#from LOTlib.TerminalNode import TerminalNode
 
-class BVNode(TerminalNode):
+#class BVNode(TerminalNode):
 
-    @property
-    def varname(self):
-        return self.string
+    #def __init__(self, parent, varname):
+        #super(BVNode, self).__init__(parent, varname)
 
-    #state.get_value(self.varname)
+    #def evaluate(self):
+        #return self.state.get_value(self.string)
 
-    #def __call__(self):
-        #raise NotImplementedError()
+    #@property
+    #def varname(self):
+        #return self.string
 

@@ -1,71 +1,111 @@
 # *- coding: utf-8 -*-
 
 import numpy as np
-from contextlib import contextmanager
 import math
 from LOTlib.Miscellaneous import cached
-#from LOTlib.GrammarRule import GrammarRule
-#from LOTlib.NonterminalNode import NonterminalNode
-#from LOTlib.TerminalNode import TerminalNode
+from collections import defaultdict
+from copy import copy
+from LOTlib.TerminalNode import TerminalNode
 
 class Grammar:
     """
     oyea
     """
-    def __init__(self, primitives, rules, bv_p=1.0, start='START'):
+    def __init__(self, rules, bv_p=1.0, start='START'):
         self._bv_p = bv_p
-        self._start = start
-        self._rules = {}  # A dict from nonterminals to lists of GrammarRules.
-        self._rule_state = {}
+        self._start_symbol = start
         # TODO get params from rules
         self._params = {} # params for production probs. dict from name to (lhs, rule_index) pair
-        for rule in rules:
-            if rule.lhs not in self._rules:
-                self._rules[rule.lhs] = []
-            self._rules[rule.lhs].append(rule)
-            if rule.is_lambda and rule.bv_type not in self._rules:
-                self._rules[rule.bv_type] = []
+        self._static_rules = defaultdict(list) # maps nonterm to list of rules
+        self._bv_rules = defaultdict(list)
 
-        self._rule_state = self._rules
+        for rule in rules:
+            self._static_rules[rule.lhs].append(rule)
+            #if rule.primitive.name() == 'lambda_':
+                #print 'adding bv type', rule.primitive.bv_type
+                #self._bv_rules[rule.primitive.bv_type] = []
+            #else:
+                #print rule.primitive.name()
+
+
+    @property
+    def bv_p(self):
+        return self._bv_p
 
     def __str__(self):
         return '\n'.join(self.rules)
 
     @property
     def rules(self):
-        return list(self.rules_where())
+        """
+        returns union of static and bv rules
+        """
+        rules = copy(self._static_rules)
+        for lhs, bv_rules in self._bv_rules.iteritems():
+            if bv_rules: # not empty
+                rules[lhs] = copy(rules[lhs])
+                rules[lhs].extend(bv_rules)
+        return rules
 
     @property
-    def n_rules(self):
-        return len(self.rules)
+    def bvs(self):
+        bvs = set()
+        for bv_rules in self._bv_rules.values():
+            for rule in bv_rules:
+                bvs.add(rule.to[0])
+        return bvs
+
+    #@property
+    #def n_rules(self):
+        #return len(self.rules)
 
     @property
-    def start(self):
-        return self._start
+    def start_symbol(self):
+        return self._start_symbol
 
-    @property
-    def start_rule(self):
-        return self.rules_where(lhs=self.start).next()
+    #@property
+    #def start_rules(self):
+        #return self.rules_where(lhs=self.start)
 
     @property
     def nonterminals(self):
-        return self._rules.keys()
+        return self.rules.keys()
 
+    @property
+    def terminals(self):
+        terminals = set()
+        for rule in rules:
+            for token in rule.to:
+                if token not in self.nonterminals:
+                    terminals.add(token)
+        return terminals
 
-    @contextmanager
-    def context(self, node):
+    #@contextmanager
+    #def context(self, node):
+        #"""
+        #Sets grammar to represent the state of the rules in the context of a particular node
+        #"""
+        #self._rule_state = node.rule_state
+        #yield
+        #self._rule_state = self._rules
+
+    def copy_with(self, rule):
         """
-        Sets grammar to represent the state of the rules in the context of a particular node
+        returns a copy of self with the given bv_rule added
         """
-        self._rule_state = node.rule_state
-        yield
-        self._rule_state = self._rules
+        # copy all and only the things that will be mutated
+        new = copy(self) # self
+        new._bv_rules = copy(new._bv_rules) # the bv rule dict
+        new._bv_rules[rule.lhs] = copy(new._bv_rules[rule.lhs]) # the list of rules of this type
+        new._bv_rules[rule.lhs].append(rule)
+        #new.clear_cache()
+        return new
 
     def get_rule(self, lhs, index):
         """
         returns the index'th rule with the given lhs
         """
-        return self._rule_state[lhs][index]
+        return self.rules[lhs][index]
 
     # iterates all rules that match the given criteria
     def rules_where(self, lhs=None, name=None, to=None):
@@ -74,7 +114,7 @@ class Grammar:
         else:
             lhss = [lhs]
         for lhs in lhss:
-            for rule in self._rule_state[lhs]:
+            for rule in self.rules[lhs]:
                 if name is not None and not r.name == name:
                     continue
                 if to is not None and not r.to == to:
@@ -94,53 +134,46 @@ class Grammar:
     def gen_prob(self, rule):
         return math.log(rule.p / self.Z(rule.lhs))
 
+    #def generate(self, chooser):
+        #if chooser is None:
+            #chooser = self.random
 
-    #####
-    # Generation
-    #####
+        #if node is None:
+            #rule = chooser(lhs=self.start_symbol, node=None)
+            #node = rule.make_node(parent_node=None)
+            #node.set_grammar(self)
 
-    def generate(self, chooser=None, node=None):
-        """
-        Generate a new function node with this grammar
+        #for i, typ in enumerate(node.child_types):
+            #if typ in self.nonterminals:
+                #rule = chooser(lhs=typ, node=node)
+                #new_node = rule.make_node(parent_node=node)
+                #node.set_child(i, new_node)
+                #self.generate(chooser, new_node)
+            #else:
+                #node.set_child(i, TerminalNode(parent=node, string=typ))
 
-        Arguments:
-            chooser (function): Function that takes a nonterminal and node for context, and
-                returns a rule with lhs = that nonterminal
-            node (FunctionNode): Node to generate from. If none then we use start node
-        """
+        #return node
 
-        if chooser is None:
-            chooser = self.random
 
-        if node is None:
-            index = chooser(self.start, None)
-            node = NonterminalNode.make_root(rule, self.gen_prob(rule), self.rules)
-
-        for i, child_string in enumerate(node.rule.to):
-            if child_string in self.nonterminals:
-                with self.context(node):
-                    rule = self.chooser(lhs=child_string, node=node)
-                    new_node = NonterminalNode(node, rule, self.gen_prob(rule))
-                    node.set_child(i, new_node)
-                    self.generate(chooser, node.child(i))
-            else:
-                node.set_child(i, TerminalNode(node, child_string))
-
-        return node
+    ####
+    # Functions to choose a rule
+    ####
 
     # wraps a function that returns an index so that it returns a rule
     def chooser(index_chooser):
         def rule_chooser(self, lhs, node=None):
-            index = index_chooser(lhs, node)
+            index = index_chooser(self, lhs, node)
             return self.get_rule(lhs, index)
+        rule_chooser.__name__ = index_chooser.__name__
         return rule_chooser
 
     @chooser
     def random(self, lhs, node=None):
         rules = list(self.rules_where(lhs=lhs))
-        if len(rules) == 0:
-            from ipdb import set_trace as BP
-            BP()
+        #if len(rules) == 0:
+            #from ipdb import set_trace as BP
+            #BP()
+        assert len(rules) > 0, 'no rules for lhs {0}'.format(lhs)
         return np.random.choice(range(len(rules)), p=self.probs(lhs))
 
     @chooser
