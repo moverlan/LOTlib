@@ -39,4 +39,8 @@ class TerminalNode(Node):
         yield self
 
     def debugstring(self, depth=0):
-        return '|'*depth + self.string
+        return '|'*depth + self._string
+
+    @property
+    def children(self):
+        return []

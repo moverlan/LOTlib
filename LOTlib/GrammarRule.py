@@ -104,7 +104,7 @@ class GrammarRule(object):
         """
         returns string in format: 'NT -> [TO]   p=1.0'.
         """
-        return str(self.lhs)+' -> '+self.function.name+str(self.to)+'\t p='+str(self.p)
+        return str(self.lhs)+' -> '+self.primitive.__name__+str(self.to)+'\t p='+str(self.p)
 
 
     #def short_str(self):

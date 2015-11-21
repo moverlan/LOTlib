@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from LOTlib.Miscellaneous import cached
+#from LOTlib.Miscellaneous import cached
 from LOTlib.Node import Node
 from LOTlib.TerminalNode import TerminalNode
 import inspect
@@ -46,21 +46,20 @@ class FunctionNode(Node):
         if self._pyfmtstring is None:
             self._pyfmtstring = self.name + '.call' + arg_string
 
-    @cached
     def __str__(self):
         args = [str(child) for child in self.children]
         return self._fmtstring.format(*args)
 
     @property
-    @cached
     def pystring(self):
         args = [child.pystring for child in self.children]
         return self._pyfmtstring.format(*args)
 
     def debugstring(self, depth=0):
-        string = '|'*depth + 'N: ' + self.rule
+        string = '|'*depth + 'N: ' + str(self.rule)
         for child in self.children:
             string += '\n' + child.debugstring(depth+1)
+        return string
 
     #@classmethod
     #def name(cls):
@@ -85,6 +84,7 @@ class FunctionNode(Node):
         if self.children[i] is not None:
             raise Immutable()
         self.children[i] = node
+        node._child_n = i
         #return node
 
     @staticmethod
@@ -117,13 +117,12 @@ class FunctionNode(Node):
         return self._rule
 
     @property
-    @cached
     def log_prob(self):
         """
         Returns the log probability of generating every node in the
         tree rooted by this node
         """
-        return sum(node.grammar.gen_prob(node.rule) for node in self)
+        return sum([child.log_prob for child in self.children], self.grammar.gen_prob(self.rule))
 
 
     def __iter__(self):
@@ -159,6 +158,7 @@ class FunctionNode(Node):
         rule = chooser(grammar.start_symbol, None)
         new = rule.make_node(parent_node=None)
         new._grammar = grammar
+        new._child_n = None
         new.generate(chooser)
         return new
 
@@ -167,20 +167,32 @@ class FunctionNode(Node):
         recursively instantiates the children of this node
         """
         chooser = getattr(self.grammar, chooser.__name__) # bind to new grammar
-        for i, typ in enumerate(self.child_types):
-            if typ in self.grammar.nonterminals:
-                rule = chooser(lhs=typ, node=self)
-                new_node = rule.make_node(parent_node=self)
-                self.set_child(i, new_node)
-                new_node.generate(chooser)
-            else:
-                self.set_child(i, TerminalNode(parent=self, string=typ))
+        for i in range(len(self.children)):
+            self.generate_child(i, chooser)
+
+    def generate_child(self, i, chooser):
+        """
+        recursively instantiates child i
+        """
+        typ = self.child_types[i]
+        # TODO make set_child not throw an exception if child is 
+        # already set, but just invalidate caches for path to parent
+        self._children[i] = None
+        if typ in self.grammar.nonterminals:
+            rule = chooser(lhs=typ, node=self)
+            new_node = rule.make_node(parent_node=self)
+            new_node.generate(chooser)
+        else:
+            new_node = TerminalNode(parent=self, string=typ)
+
+        self.set_child(i, new_node)
+        return new_node
 
     def __ne__(self, other):
         return not self == other
 
     def __eq__(self, other):
-        return fullstring(self) == fullstring(other)
+        return self.debugstring() == other.debugstring()
 
     def __hash__(self):
         return hash(str(self))

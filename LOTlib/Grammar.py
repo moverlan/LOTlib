@@ -196,6 +196,11 @@ class Grammar:
                 yield i
         return frm_list
 
+    #@chooser
+    #def enumerate(self, lhs=None, node=None):
+
+
+
     #def make_pick_rule_fn(self):
         #sofar = [self._start]
         #def pick_rule(self, lhs):
