@@ -8,6 +8,13 @@ def random_regen(hyp):
     #print 'old', root.log_prob, root
     root = hyp.func_tree
     new_root = root.copy()
+
+    #all_ids = [id(node) for node in root] + [id(node) for node in new_root]
+    #unique = set()
+    #for idd in all_ids:
+        #assert idd not in unique
+        #unique.add(idd)
+
     node = random.choice(list(new_root))
     #print 'node', node
 
@@ -23,9 +30,16 @@ def random_regen(hyp):
 
         #print 'new', new
 
+    new_hyp = hyp.copy_with(func_tree=new_root)
+
     #print 'new', new_root.log_prob, new_root
-    forward = new.log_prob - log(1./root.size)
-    backward = root.log_prob - log(1./new_root.size)
-    
-    return hyp.copy_with(func_tree=new_root), backward-forward
+    #forward = new.log_prob - log(root.size)
+    #backward = node.log_prob - log(new_root.size)
+    #acceptance_ratio = new_hyp.posterior - hyp.posterior + backward - forward
+
+    simplified_ar = new_hyp.likelihood - hyp.likelihood - log(new_root.size) + log(root.size)
+
+    #assert abs(acceptance_ratio-simplified_ar)<1e-10
+
+    return new_hyp, simplified_ar
 
