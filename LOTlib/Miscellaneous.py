@@ -29,19 +29,32 @@ F = False
 
 # ------------------------------------------------------------------------------------------------------------
 
-def cached(fn):
+class CachedProperty(object):
     """
     decorator to cache results of a methods that are used as read-only properties
     useful for expensive properties of immutable objects
     """
-    name = '_cached_' + fn.__name__
-    def cached_fn(self):
-        try:
-            value = getattr(self, name)
-        except AttributeError:
-            setattr(self, name, fn(self))
-        return getattr(self, name)
-    return cached_fn
+    def __init__(self, fn, cachevar='_cache'):
+        self.fn = fn
+        self.cachevar = cachevar
+        self.name = fn.__name__
+
+    def __get__(self, obj, objtype=None):
+        if self.stored(obj) is None:
+            self.store(obj, self.fn(obj))
+        return self.stored(obj)
+
+    def stored(self, obj):
+        cache = getattr(obj, self.cachevar)
+        if self.name not in cache:
+            cache[self.name] = None
+        return cache[self.name]
+
+    def store(self, obj, value):
+        getattr(obj, self.cachevar)[self.name] = value
+
+    def clear(self, obj):
+        self.store(obj, None)
 
     
 def first(x):

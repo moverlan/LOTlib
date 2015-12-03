@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-#from LOTlib.Miscellaneous import cached
+#from LOTlib.Miscellaneous import Cache
 from LOTlib.Node import Node
 from LOTlib.TerminalNode import TerminalNode
 import inspect
@@ -27,20 +27,22 @@ class FunctionNode(Node):
     _fmtstring = None
     _pyfmtstring = None
 
-    def __init__(self, parent, rule, string=None, pystring=None):
-        super(FunctionNode, self).__init__(parent)
+    def __init__(self, rule, string=None, pystring=None, **kwargs):
+        super(FunctionNode, self).__init__(**kwargs)
         self._rule = rule
         self._children = [None for _ in self.child_types]
         # string stuff -- string can come from 3 places that form a hierarchy
         # if the rule specifies a string, it gets passed in and used
         # otherwise, if the inheriting class defines it, that is used
         # otherwise, it's the default fname(arg1, arg2) construction built here
-        n_args = len(inspect.getargspec(type(self).call).args)
-        arg_string = '('+','.join(['{'+str(i)+'}' for i in range(n_args)])+')'
         if string is not None:
             self._fmtstring = string
         if pystring is not None:
             self._pyfmtstring = pystring
+
+        n_args = len(inspect.getargspec(type(self).call).args)
+        arg_string = '('+','.join(['{'+str(i)+'}' for i in range(n_args)])+')'
+
         if self._fmtstring is None:
             self._fmtstring = self.name + arg_string
         if self._pyfmtstring is None:
@@ -82,10 +84,10 @@ class FunctionNode(Node):
 
     def set_child(self, i, node):
         if self.children[i] is not None:
-            raise Immutable()
+            # invalidate all caches
+            pass
         self.children[i] = node
-        node._child_n = i
-        #return node
+        node.set_parent(parent=self, child_n=i)
 
     @staticmethod
     def call(self, *args):
@@ -95,17 +97,7 @@ class FunctionNode(Node):
         raise NotImplementedError
 
     def evaluate(self, state={}):
-        #if self.name == 'concat':
-            #print 'evaluating concat'
-            #print 'children', self.children
-            #print 'state', state
-            #print 'evaled', [child.evaluate(state) for child in self.children]
-        #if self.name == 'minus':
-            #print 'minus eval'
-            #print 'state', state
         args = [child.evaluate(state) for child in self.children]
-        #if self.name == 'minus':
-            #print 'args', args
         return type(self).call(*args)
 
     @property
@@ -122,8 +114,7 @@ class FunctionNode(Node):
         Returns the log probability of generating every node in the
         tree rooted by this node
         """
-        return sum([child.log_prob for child in self.children], self.grammar.gen_prob(self.rule))
-
+        return self.grammar.gen_prob(self.rule) + sum([child.log_prob for child in self.children])
 
     def __iter__(self):
         """
@@ -146,23 +137,11 @@ class FunctionNode(Node):
         Iterates all nodes in the tree rooted by this node that satisfy the conditions
         """
         for node in self:
-            if node.name == name:
+            if node.children and node.name == name:
                 yield node
 
-    @staticmethod
-    def new(chooser):
-        """
-        Returns a new tree using the given rule choosing function
-        """
-        grammar = chooser.__self__
-        rule = chooser(grammar.start_symbol, None)
-        new = rule.make_node(parent_node=None)
-        new._grammar = grammar
-        new._child_n = None
-        new.generate(chooser)
-        return new
 
-    def generate(self, chooser):
+    def generate_children(self, chooser):
         """
         recursively instantiates the children of this node
         """
@@ -175,15 +154,14 @@ class FunctionNode(Node):
         recursively instantiates child i
         """
         typ = self.child_types[i]
-        # TODO make set_child not throw an exception if child is 
-        # already set, but just invalidate caches for path to parent
-        self._children[i] = None
+        #self._children[i] = None
+        assert chooser.__self__ is self.grammar
         if typ in self.grammar.nonterminals:
             rule = chooser(lhs=typ, node=self)
-            new_node = rule.make_node(parent_node=self)
-            new_node.generate(chooser)
+            new_node = rule.make_node()
+            new_node.generate_children(chooser)
         else:
-            new_node = TerminalNode(parent=self, string=typ)
+            new_node = TerminalNode(value=typ)
 
         self.set_child(i, new_node)
         return new_node

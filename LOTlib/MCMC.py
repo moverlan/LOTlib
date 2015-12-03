@@ -2,10 +2,11 @@
 
 from random import random
 from math import log, exp
+from LOTlib import lot_iter as interruptible
 
 def metropolis_hastings(hyp, proposal_fn, samples):
     count = 0
-    for _ in xrange(samples):
+    for _ in interruptible(xrange(samples)):
         new_hyp, acceptance_ratio = proposal_fn(hyp)
         #print 'old', hyp
         #print 'new', new_hyp
@@ -25,4 +26,5 @@ def metropolis_hastings(hyp, proposal_fn, samples):
 
         #raw_input()
         yield hyp
-    print count, samples, float(count)/samples
+    #print count, samples, float(count)/samples
+

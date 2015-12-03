@@ -2,37 +2,22 @@
 
 import random
 from math import log
+from collections import defaultdict
 
 def random_regen(hyp):
-    #print 
-    #print 'old', root.log_prob, root
     root = hyp.func_tree
     new_root = root.copy()
 
-    #all_ids = [id(node) for node in root] + [id(node) for node in new_root]
-    #unique = set()
-    #for idd in all_ids:
-        #assert idd not in unique
-        #unique.add(idd)
-
     node = random.choice(list(new_root))
-    #print 'node', node
 
     if node.is_root:
-        #print 'replacing root'
         new = type(node).new(node.grammar.random)
         new_root = new
     else:
         new = node.parent.generate_child(node.child_n, node.grammar.random)
-        #assert (new_root.log_prob-root.log_prob) - (new.log_prob-node.log_prob) < 10e-8
-        #if new == node:
-            #print 'same', new, node
-
-        #print 'new', new
 
     new_hyp = hyp.copy_with(func_tree=new_root)
 
-    #print 'new', new_root.log_prob, new_root
     #forward = new.log_prob - log(root.size)
     #backward = node.log_prob - log(new_root.size)
     #acceptance_ratio = new_hyp.posterior - hyp.posterior + backward - forward
@@ -42,4 +27,46 @@ def random_regen(hyp):
     #assert abs(acceptance_ratio-simplified_ar)<1e-10
 
     return new_hyp, simplified_ar
+
+def abstract_inline(hyp):
+    root = hyp.func_tree.copy()
+    rules_where = root.grammar.rules_where
+
+    # find all apply/lambda pairs
+    abstraction_rule_pairs = set()
+    for apply_rule in rules_where(func_name='apply_'):
+        for lambda_rule in rules_where(lhs=apply_rule.to[0]):
+            abstraction_rule_pairs.add((apply_rule, lambda_rule))
+
+    # find all types that can go to both the apply's type and the type
+    # being abstracted over
+    parents = defaultdict(list)
+    for apply_rule, lambda_rule in abstraction_rule_pairs:
+        for rule1 in rules_where(to=[apply_rule.lhs]):
+            for rule2 in rules_where(lhs=rule1.lhs, to=[lambda_rule.to[0]]):
+                parents[(rule1, rule2)].append((apply_rule, lambda_rule))
+
+    candidate_nodes = defaultdict(list)
+    for node in root:
+        for (rule1, rule2), rule_pair_list in parents.items():
+            if node.rule == rule2:
+                candidate_nodes[(node)].append((rule1, rule2))
+
+    node = random.choice(candidate_nodes.keys())
+    parent_rule_1, parent_rule_2 = random.choice(candidate_nodes[node])
+    apply_rule, lambda_rule = random.choice(parents[(parent_rule_1, parent_rule_2)])
+
+    print len(candidate_nodes), len(candidate_nodes[node]), len(parents[(parent_rule_1, parent_rule_2)])
+    p = 1./len(candidate_nodes) * \
+        1./len(candidate_nodes[node]) * \
+        1./len(parents[(parent_rule_1, parent_rule_2)])
+    print p
+
+    new_parent = rule1.make_node(node.parent)
+    apply_node = apply_rule.make_node(new_parent)
+    lambda_node = lambda_rule.make_node(apply_node)
+
+    print new_parent
+
+    return hyp
 

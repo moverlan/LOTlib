@@ -3,12 +3,12 @@
 from LOTlib.Node import Node
 
 class TerminalNode(Node):
-    def __init__(self, parent, string):
-        super(TerminalNode, self).__init__(parent)
-        self._string = string
+    def __init__(self, value, **kwargs):
+        super(TerminalNode, self).__init__(**kwargs)
+        self._value = value
 
     def __str__(self):
-        return self._string
+        return str(self._value)
 
     @property
     def pystring(self):
@@ -22,10 +22,10 @@ class TerminalNode(Node):
         
     @property
     def returntype(self):
-        return self._string
+        return str(self)
 
     def evaluate(self, state={}):
-        value = self._string
+        value = self._value
         # resolve all variables
         while value in state:
             value = state[value]
@@ -39,8 +39,12 @@ class TerminalNode(Node):
         yield self
 
     def debugstring(self, depth=0):
-        return '|'*depth + self._string
+        return '|'*depth + str(self)
 
     @property
     def children(self):
         return []
+
+    @property
+    def rule(self):
+        return None

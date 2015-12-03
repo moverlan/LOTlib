@@ -45,9 +45,9 @@ class GrammarRule(object):
     #def primitive(self):
         #return self._primitive
 
-    #@property
-    #def fname(self):
-        #return self.function.name
+    @property
+    def func_name(self):
+        return self.primitive.__name__
 
     #@property
     #def is_lambda(self):
@@ -74,22 +74,23 @@ class GrammarRule(object):
     #def string(self):
         #return self._string
 
-    def make_node(self, parent_node):
+    def make_node(self):
         """
-        creates a new node of this rule's primitive, passing along
-        all arguments
+        creates a new node using this rule's primitive and specified arguments
         """
         #print self._primitive
         #print self._kwargs
-        return self._primitive(parent=parent_node, rule=self, **self._kwargs)
-
-    #def make_root(self, gen_prob, rules, **kwargs):
-        #"""
-        #creates a new root node
-        #"""
-        #node = self.make_node(None, gen_prob)
-        #node.init_state(rules)
+        return self._primitive(rule=self, **self._kwargs)
+        #if parent_node is None:
+            #assert grammar is not None
+            #node.set_grammar(grammar)
         #return node
+
+    def make_root(self, grammar):
+        """
+        creates a new root node using this rule's primitive and specified arguments
+        """
+        return self._primitive(rule=self, grammar=grammar, **self._kwargs)
 
     def __eq__(self, other):
         return hash(self) == hash(other)
@@ -104,7 +105,7 @@ class GrammarRule(object):
         """
         returns string in format: 'NT -> [TO]   p=1.0'.
         """
-        return str(self.lhs)+' -> '+self.primitive.__name__+str(self.to)+'\t p='+str(self.p)
+        return str(self.lhs)+' -> '+self.primitive.__name__+str(self.to)+'\t p='+str(self.p)+'\t'+' '.join(str(k)+':'+str(v) for k,v in self._kwargs.items())
 
 
     #def short_str(self):

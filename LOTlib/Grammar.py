@@ -2,7 +2,7 @@
 
 import numpy as np
 import math
-from LOTlib.Miscellaneous import cached
+#from LOTlib.Miscellaneous import cached
 from collections import defaultdict
 from copy import copy
 from LOTlib.TerminalNode import TerminalNode
@@ -38,7 +38,7 @@ class Grammar:
     @property
     def rules(self):
         """
-        returns union of static and bv rules
+        returns dict with union of static and bv rules
         """
         rules = copy(self._static_rules)
         for lhs, bv_rules in self._bv_rules.iteritems():
@@ -48,12 +48,25 @@ class Grammar:
         return rules
 
     @property
-    def bvs(self):
-        bvs = set()
-        for bv_rules in self._bv_rules.values():
-            for rule in bv_rules:
-                bvs.add(rule.to[0])
-        return bvs
+    def all_rules(self):
+        """
+        iterates over all rules
+        """
+        for rule_list in self.rules.values():
+            for rule in rule_list:
+                yield rule
+
+    #@property
+    #def bvs(self):
+        #bvs = set()
+        #for bv_rules in self._bv_rules.values():
+            #for rule in bv_rules:
+                #bvs.add(rule.to[0])
+        #return bvs
+    
+    @property
+    def bv_rules(self):
+        return self._bv_rules
 
     #@property
     #def n_rules(self):
@@ -108,16 +121,16 @@ class Grammar:
         return self.rules[lhs][index]
 
     # iterates all rules that match the given criteria
-    def rules_where(self, lhs=None, name=None, to=None):
+    def rules_where(self, lhs=None, func_name=None, to=None):
         if lhs is None:
             lhss = self.nonterminals
         else:
             lhss = [lhs]
         for lhs in lhss:
             for rule in self.rules[lhs]:
-                if name is not None and not r.name == name:
+                if func_name is not None and not rule.func_name == func_name:
                     continue
-                if to is not None and not r.to == to:
+                if to is not None and not rule.to == to:
                     continue
                 yield rule
 
@@ -153,6 +166,15 @@ class Grammar:
                 #node.set_child(i, TerminalNode(parent=node, string=typ))
 
         #return node
+
+    def new_tree(self, chooser):
+        """
+        Returns a new tree using the given rule choosing function
+        """
+        rule = chooser(self.start_symbol, None)
+        root = rule.make_root(grammar=self)
+        root.generate_children(chooser)
+        return root
 
 
     ####

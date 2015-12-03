@@ -24,16 +24,19 @@ class lambda_(FunctionNode):
     _fmtstring = 'λ{0}.{1}'
     _pyfmtstring = 'lambda {0}: {1}'
 
-    def __init__(self, parent, rule, bv_type, bv_prefix=None, **kwargs):
-        super(lambda_, self).__init__(parent, rule,**kwargs)
+    def __init__(self, rule, bv_type, bv_prefix=None, **kwargs):
+        super(lambda_, self).__init__(rule, **kwargs)
         self._bv_type = bv_type
         self._bv_prefix = bv_prefix
         if bv_prefix is None:
             self._bv_prefix = bv_type[0].lower()
-        #print dict(self.grammar.rules)#[self.bv_type]
-        self._varname = self.bv_prefix + str(len(self.grammar.rules[self.bv_type])+1)
+        self._varname = self.bv_prefix + str(len(self.grammar.bv_rules[self.bv_type])+1)
         bv_rule = self.make_bv_rule(self.varname, self.grammar.bv_p)
         self._grammar = parent.grammar.copy_with(bv_rule)
+
+    @property
+    def grammar(self):
+        return self._grammar
 
     def __str__(self):
         return self._fmtstring.format(self.varname, str(self.child(0)))
