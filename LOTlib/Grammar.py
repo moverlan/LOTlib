@@ -11,7 +11,8 @@ class Grammar:
     """
     oyea
     """
-    def __init__(self, rules, bv_p=1.0, start='START'):
+    def __init__(self, rules, alphabet, bv_p=1.0, start='START'):
+        self._alphabet = alphabet
         self._bv_p = bv_p
         self._start_symbol = start
         # TODO get params from rules
@@ -27,6 +28,9 @@ class Grammar:
             #else:
                 #print rule.primitive.name()
 
+    @property
+    def alphabet(self):
+        return self._alphabet
 
     @property
     def bv_p(self):
@@ -167,14 +171,19 @@ class Grammar:
 
         #return node
 
+    def new_node(self, lhs, chooser):
+        rule = chooser(self, lhs, None)
+        node = rule.make_node(grammar=self)
+        return node
+
+
     def new_tree(self, chooser):
         """
         Returns a new tree using the given rule choosing function
         """
-        rule = chooser(self.start_symbol, None)
-        root = rule.make_root(grammar=self)
-        root.generate_children(chooser)
-        return root
+        node = self.new_node(self.start_symbol, chooser)
+        node.generate_children(chooser)
+        return node
 
 
     ####
@@ -189,34 +198,41 @@ class Grammar:
         rule_chooser.__name__ = index_chooser.__name__
         return rule_chooser
 
+    @staticmethod
     @chooser
-    def random(self, lhs, node=None):
-        rules = list(self.rules_where(lhs=lhs))
-        #if len(rules) == 0:
-            #from ipdb import set_trace as BP
-            #BP()
+    def random(grammar, lhs, node=None):
+        rules = list(grammar.rules_where(lhs=lhs))
         assert len(rules) > 0, 'no rules for lhs {0}'.format(lhs)
-        return np.random.choice(range(len(rules)), p=self.probs(lhs))
+        return np.random.choice(range(len(rules)), p=grammar.probs(lhs))
 
+    @staticmethod
     @chooser
-    def manual_input(self, lhs, node):
-        print node.root
-        rules = self.rules_where(lhs=lhs)
+    def manual_input(grammar, lhs, node):
+        if node is not None:
+            print node.root
+        if lhs is None:
+            lhs = grammar.start_symbol
+        rules = list(grammar.rules_where(lhs=lhs))
         for i, rule in enumerate(rules):
-            print '[' + str(i+1) + '] ' + rule
+            print '[' + str(i+1) + '] ' + str(rule)
         while True:
             selection = int(raw_input())-1
-            if selection in range(1, len(rules)):
+            if selection in range(0, len(rules)):
                 return selection
             else:
                 print 'nope'
 
-    def from_list(self, rule_indexes):
-        @chooser
-        def frm_list(self, lhs, node):
-            for i in rule_indexes:
-                yield i
+    @staticmethod
+    def from_list(rule_indexes):
+        current = [-1] # python's closures are dumb and must be wrapped in a container so they aren't re-declared
+        def frm_list(grammar, lhs, node=None):
+            current[0] += 1
+            #print lhs
+            #print grammar.rules[lhs]
+            return grammar.get_rule(lhs, rule_indexes[current[0]]-1)
+        #self.frm_list = frm_list.__get__(self, Grammar) # bind to self
         return frm_list
+
 
     #@chooser
     #def enumerate(self, lhs=None, node=None):

@@ -21,7 +21,11 @@ class TerminalNode(Node):
             #return "'"+self._string+"'"
         
     @property
-    def returntype(self):
+    def return_type(self):
+        return str(self)
+
+    @property
+    def name(self):
         return str(self)
 
     def evaluate(self, state={}):
@@ -39,7 +43,7 @@ class TerminalNode(Node):
         yield self
 
     def debugstring(self, depth=0):
-        return '|'*depth + str(self)
+        return '| '*depth + str(self)
 
     @property
     def children(self):
@@ -48,3 +52,6 @@ class TerminalNode(Node):
     @property
     def rule(self):
         return None
+
+    def duplicate(self):
+        return TerminalNode(value=str(self))

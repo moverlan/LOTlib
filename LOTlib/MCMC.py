@@ -3,28 +3,14 @@
 from random import random
 from math import log, exp
 from LOTlib import lot_iter as interruptible
+from sys import maxint
 
-def metropolis_hastings(hyp, proposal_fn, samples):
+def metropolis_hastings(hyp, proposal_fn, samples=maxint, print_every=maxint):
     count = 0
-    for _ in interruptible(xrange(samples)):
+    for step in interruptible(xrange(samples)):
         new_hyp, acceptance_ratio = proposal_fn(hyp)
-        #print 'old', hyp
-        #print 'new', new_hyp
-        #print 'proposal ratio', proposal_ratio
-        #print 'new posterior', new_hyp.posterior
-        #print 'old posterior', hyp.posterior
-        #print 'prob ratio', prob_ratio
-        #print 'acceptance ratio', acceptance_ratio
         if acceptance_ratio > log(random()):
-            #print 'accept'
-            #if new == node:
-                #print 'but they are same'
             hyp = new_hyp
             count += 1
-        #else:
-            #print 'reject'
-
-        #raw_input()
         yield hyp
-    #print count, samples, float(count)/samples
 

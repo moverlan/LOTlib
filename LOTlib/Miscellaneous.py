@@ -40,21 +40,39 @@ class CachedProperty(object):
         self.name = fn.__name__
 
     def __get__(self, obj, objtype=None):
-        if self.stored(obj) is None:
-            self.store(obj, self.fn(obj))
-        return self.stored(obj)
-
-    def stored(self, obj):
         cache = getattr(obj, self.cachevar)
         if self.name not in cache:
-            cache[self.name] = None
-        return cache[self.name]
+            cache.store(self.name, self.fn(obj))
+        return cache.get(self.name)
 
-    def store(self, obj, value):
-        getattr(obj, self.cachevar)[self.name] = value
+    #def stored(self, obj):
+        #return cache[self.name]
+
+    #def store(self, obj, value):
+        #getattr(obj, self.cachevar)[self.name] = value
+
+class Cache(object):
+    """
+    Cache to put in objects that use the decorator. Pass the name of this
+    object to the decorator
+    """
+    def __init__(self):
+        self._cache = {}
+
+    def __contains__(self, name):
+        return name in self._cache
+
+    def get(self, name):
+        if name not in self._cache:
+            self._cache[name] = None
+        return self._cache[name]
+
+    def store(self, name, value):
+        self._cache[name] = value
 
     def clear(self, obj):
-        self.store(obj, None)
+        self._cache = {}
+
 
     
 def first(x):

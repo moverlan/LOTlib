@@ -48,8 +48,10 @@ class FunctionNode(Node):
         if self._pyfmtstring is None:
             self._pyfmtstring = self.name + '.call' + arg_string
 
+        #self._cache_down = {}
+
     def __str__(self):
-        args = [str(child) for child in self.children]
+        args = [str(child) if child is not None else self.rule.lhs for child in self.children]
         return self._fmtstring.format(*args)
 
     @property
@@ -58,9 +60,12 @@ class FunctionNode(Node):
         return self._pyfmtstring.format(*args)
 
     def debugstring(self, depth=0):
-        string = '|'*depth + 'N: ' + str(self.rule)
-        for child in self.children:
-            string += '\n' + child.debugstring(depth+1)
+        string = '| '*depth + str(self.rule)
+        for i, child in enumerate(self.children):
+            if child is None:
+                string += '\n' + self.rule.to[i]
+            else:
+                string += '\n' + child.debugstring(depth+1)
         return string
 
     #@classmethod
@@ -87,7 +92,7 @@ class FunctionNode(Node):
             # invalidate all caches
             pass
         self.children[i] = node
-        node.set_parent(parent=self, child_n=i)
+        node._set_parent(self, child_n=i)
 
     @staticmethod
     def call(self, *args):
@@ -129,42 +134,43 @@ class FunctionNode(Node):
         yields all nodes below this one
         """
         for child in self.children:
-            for descendent in child:
-                yield descendent
+            if child is not None:
+                for descendent in child:
+                    yield descendent
 
     def nodes_where(self, name=None):
         """
         Iterates all nodes in the tree rooted by this node that satisfy the conditions
         """
         for node in self:
-            if node.children and node.name == name:
+            if node.is_nonterminal and node.name == name:
                 yield node
-
-
-    def generate_children(self, chooser):
-        """
-        recursively instantiates the children of this node
-        """
-        chooser = getattr(self.grammar, chooser.__name__) # bind to new grammar
-        for i in range(len(self.children)):
-            self.generate_child(i, chooser)
 
     def generate_child(self, i, chooser):
         """
         recursively instantiates child i
         """
+        # bind chooser function to this node's grammar
+        #chooser = getattr(self.grammar, chooser.__name__)
+        #assert chooser.__self__ is self.grammar
         typ = self.child_types[i]
         #self._children[i] = None
-        assert chooser.__self__ is self.grammar
         if typ in self.grammar.nonterminals:
-            rule = chooser(lhs=typ, node=self)
+            rule = chooser(self.grammar, lhs=typ, node=self)
             new_node = rule.make_node()
-            new_node.generate_children(chooser)
         else:
             new_node = TerminalNode(value=typ)
 
         self.set_child(i, new_node)
+        new_node.generate_children(chooser)
         return new_node
+
+    def duplicate(self):
+        if self.is_root:
+            new = self.rule.make_node(grammar=self.grammar)
+        else:
+            new = self.rule.make_node()
+        return new
 
     def __ne__(self, other):
         return not self == other

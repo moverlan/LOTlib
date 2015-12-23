@@ -74,23 +74,23 @@ class GrammarRule(object):
     #def string(self):
         #return self._string
 
-    def make_node(self):
+    def make_node(self, grammar=None):
         """
         creates a new node using this rule's primitive and specified arguments
         """
         #print self._primitive
         #print self._kwargs
-        return self._primitive(rule=self, **self._kwargs)
+        return self._primitive(rule=self, grammar=grammar, **self._kwargs)
         #if parent_node is None:
             #assert grammar is not None
             #node.set_grammar(grammar)
         #return node
 
-    def make_root(self, grammar):
-        """
-        creates a new root node using this rule's primitive and specified arguments
-        """
-        return self._primitive(rule=self, grammar=grammar, **self._kwargs)
+    #def make_root(self, grammar):
+        #"""
+        #creates a new root node using this rule's primitive and specified arguments
+        #"""
+        #return self._primitive(rule=self, grammar=grammar, **self._kwargs)
 
     def __eq__(self, other):
         return hash(self) == hash(other)

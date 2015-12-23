@@ -19,6 +19,10 @@ class apply_(FunctionNode):
         state[fn.varname] = arg.evaluate(state)
         return fn.evaluate(state)
 
+    @property
+    def arg_type(self):
+        return self.rule.to[1]
+
     
 class lambda_(FunctionNode):
     _fmtstring = 'λ{0}.{1}'
@@ -30,16 +34,18 @@ class lambda_(FunctionNode):
         self._bv_prefix = bv_prefix
         if bv_prefix is None:
             self._bv_prefix = bv_type[0].lower()
-        self._varname = self.bv_prefix + str(len(self.grammar.bv_rules[self.bv_type])+1)
-        bv_rule = self.make_bv_rule(self.varname, self.grammar.bv_p)
-        self._grammar = parent.grammar.copy_with(bv_rule)
+        self._new_grammar = None
+        self._varname = None
+        self._bv_rule = None
 
     @property
     def grammar(self):
-        return self._grammar
+        if self._new_grammar is None:
+            self._new_grammar = super(lambda_, self).grammar.copy_with(self.bv_rule)
+        return self._new_grammar
 
     def __str__(self):
-        return self._fmtstring.format(self.varname, str(self.child(0)))
+        return self._fmtstring.format(self.varname, str(self.child(0)) if self.child(0) is not None else self.rule.to[0])
 
     @property
     def pystring(self):
@@ -50,6 +56,9 @@ class lambda_(FunctionNode):
 
     @property
     def varname(self):
+        if self._varname is None:
+            parent_grammar = super(lambda_, self).grammar
+            self._varname = self.bv_prefix + str(len(parent_grammar.bv_rules[self.bv_type])+1)
         return self._varname
 
     @property
@@ -60,15 +69,16 @@ class lambda_(FunctionNode):
     def bv_type(self):
         return self._bv_type
 
-    def make_bv_rule(self, varname, p):
+    @property
+    def bv_rule(self):
         """
-        returns the rule to generate this node's bound var, and sets the varname
-        p: the unnormalized probability of choosing this rule
-        varname: (str) the name of the introduced variable
         Ex:
             TOKEN -> x1, p=1.0
         """
-        return GrammarRule(self.bv_type, Nonterminal, [varname], p)
+        if self._bv_rule is None:
+            parent_grammar = super(lambda_, self).grammar
+            self._bv_rule = GrammarRule(self.bv_type, Nonterminal, [self.varname], parent_grammar.bv_p)
+        return self._bv_rule
 
 
 class Nonterminal(FunctionNode):
