@@ -6,6 +6,7 @@ import math
 from collections import defaultdict
 from copy import copy
 from LOTlib.TerminalNode import TerminalNode
+from sympy import log
 
 class Grammar:
     """
@@ -16,17 +17,15 @@ class Grammar:
         self._bv_p = bv_p
         self._start_symbol = start
         # TODO get params from rules
-        self._params = {} # params for production probs. dict from name to (lhs, rule_index) pair
+        self._params = {} # default values for params
         self._static_rules = defaultdict(list) # maps nonterm to list of rules
         self._bv_rules = defaultdict(list)
 
+        self._params = {}
         for rule in rules:
             self._static_rules[rule.lhs].append(rule)
-            #if rule.primitive.name() == 'lambda_':
-                #print 'adding bv type', rule.primitive.bv_type
-                #self._bv_rules[rule.primitive.bv_type] = []
-            #else:
-                #print rule.primitive.name()
+            if rule.param is not None:
+                self._params[rule.param] = rule.pfault
 
     @property
     def alphabet(self):
@@ -35,6 +34,10 @@ class Grammar:
     @property
     def bv_p(self):
         return self._bv_p
+
+    @property
+    def params(self):
+        return self._params
 
     def __str__(self):
         return '\n'.join(self.rules)
@@ -139,17 +142,22 @@ class Grammar:
                 yield rule
 
     def probs(self, lhs, normalized=True):
-        probs = np.array([rule.p for rule in self.rules_where(lhs=lhs)])
+        """
+        returns a np array of the default probabilities
+        for all rules of the given lhs
+        """
+        #probs = np.array([rule.p for rule in self.rules_where(lhs=lhs)])
+        probs = np.array([rule.pfault for rule in self.rules_where(lhs=lhs)])
         if normalized:
             return probs / np.sum(probs)
         else:
             return probs
 
     def Z(self, lhs):
-        return np.sum(self.probs(lhs, normalized=False))
+        return sum([rule.p for rule in self.rules_where(lhs=lhs)])
 
     def gen_prob(self, rule):
-        return math.log(rule.p / self.Z(rule.lhs))
+        return log(rule.p / self.Z(rule.lhs))
 
     #def generate(self, chooser):
         #if chooser is None:

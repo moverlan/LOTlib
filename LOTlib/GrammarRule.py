@@ -1,4 +1,5 @@
 # *- coding: utf-8 -*-
+from sympy import sympify
 
 class GrammarRule(object):
     """
@@ -29,38 +30,32 @@ class GrammarRule(object):
     >> GrammarRule( "EXPR", None, ['term', 'NONTERM', 'term'], ...) -> EXPR-> 'term'+NONTERM+'term'
 
     """
-    def __init__(self, lhs, primitive, to, p=1.0, **kwargs):
+    def __init__(self, lhs, primitive, to, p=1.0, param=None, **kwargs):
         self._lhs = lhs
         self._primitive = primitive
         self._to = to
         self._p = float(p)
+        if param is not None:
+            self._param = sympify(param)
+        else:
+            self._param = param
         self._kwargs = kwargs # to pass along to node constructor
-
 
     @property
     def lhs(self):
         return self._lhs
 
-    #@property
-    #def primitive(self):
-        #return self._primitive
+    @property
+    def param(self):
+        return self._param
 
     @property
     def func_name(self):
         return self.primitive.__name__
 
-    #@property
-    #def is_lambda(self):
-        #return self._is_lambda
-
     @property
     def primitive(self):
         return self._primitive
-
-    #@property
-    #def bv_type(self):
-        #if self.is_lambda:
-            #return self.to[0]
 
     @property
     def to(self):
@@ -68,11 +63,25 @@ class GrammarRule(object):
 
     @property
     def p(self):
+        """
+        expression for p
+        """
+        if self._param is not None:
+            return self._param
+        else:
+            return self._p
+
+    @property
+    def pfault(self):
         return self._p
 
     #@property
     #def string(self):
         #return self._string
+
+    #@propert
+    #def param(self):
+        #return self._param
 
     def make_node(self, grammar=None):
         """

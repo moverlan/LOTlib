@@ -27,10 +27,11 @@ class FunctionNode(Node):
     _fmtstring = None
     _pyfmtstring = None
 
-    def __init__(self, rule, string=None, pystring=None, **kwargs):
+    def __init__(self, rule, param=None, string=None, pystring=None, **kwargs):
         super(FunctionNode, self).__init__(**kwargs)
         self._rule = rule
         self._children = [None for _ in self.child_types]
+        self._param = param
         # string stuff -- string can come from 3 places that form a hierarchy
         # if the rule specifies a string, it gets passed in and used
         # otherwise, if the inheriting class defines it, that is used
@@ -116,10 +117,8 @@ class FunctionNode(Node):
     @property
     def log_prob(self):
         """
-        Returns the log probability of generating every node in the
-        tree rooted by this node
         """
-        return self.grammar.gen_prob(self.rule) + sum([child.log_prob for child in self.children])
+        return self.grammar.gen_prob(self.rule) + sum(child.log_prob for child in self.children)
 
     def __iter__(self):
         """
